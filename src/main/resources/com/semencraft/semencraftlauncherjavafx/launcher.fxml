@@ -1,16 +1,256 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.VBox?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.semencraft.semencraftlauncherjavafx.LauncherController"
+            styleClass="launcher-root">
 
-<?import javafx.scene.control.Button?>
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="com.semencraft.semencraftlauncherjavafx.LauncherController">
-    <padding>
-        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0"/>
-    </padding>
+    <top>
+        <HBox fx:id="titleBar" styleClass="title-bar" alignment="CENTER_LEFT">
+            <ImageView fx:id="imgTitleBarIcon" fitHeight="18" preserveRatio="true" smooth="true">
+                <HBox.margin><Insets left="8" right="8"/></HBox.margin>
+            </ImageView>
+            <Label text="SemenCraft Launcher" styleClass="title-label"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnMinimize" styleClass="win-btn" text="_" focusTraversable="false" onAction="#onMinimize"/>
+            <Button fx:id="btnMaxRestore" styleClass="win-btn" text="[ ]" focusTraversable="false" onAction="#onMaxRestore"/>
+            <Button fx:id="btnClose" styleClass="win-btn-close" text="X" focusTraversable="false" onAction="#onClose"/>
+        </HBox>
+    </top>
 
-    <Label fx:id="welcomeText"/>
-    <Button text="Hello!" onAction="#onHelloButtonClick"/>
-</VBox>
+    <center>
+        <StackPane maxWidth="Infinity" maxHeight="Infinity">
+            <Region styleClass="app-background" maxWidth="Infinity" maxHeight="Infinity"/>
+
+            <HBox maxWidth="Infinity" maxHeight="Infinity" spacing="0">
+                <StackPane fx:id="sidebarGlass"
+                           styleClass="sidebar-glass"
+                           minWidth="212"
+                           prefWidth="262"
+                           maxWidth="262">
+                    <Region fx:id="sidebarBlurLayer" styleClass="sidebar-blur-layer" maxWidth="Infinity" maxHeight="Infinity"/>
+                    <Region styleClass="sidebar-dark-overlay" maxWidth="Infinity" maxHeight="Infinity"/>
+
+                    <ScrollPane fx:id="sidebarScroll"
+                                styleClass="sidebar-scroll"
+                                fitToWidth="true"
+                                fitToHeight="true"
+                                hbarPolicy="NEVER"
+                                vbarPolicy="NEVER"
+                                maxWidth="Infinity"
+                                maxHeight="Infinity">
+                        <content>
+                            <VBox fx:id="sidebar"
+                                  styleClass="sidebar"
+                                  fillWidth="true"
+                                  prefWidth="262"
+                                  minWidth="212"
+                                  maxWidth="262">
+
+                                <HBox alignment="CENTER">
+                                    <VBox.margin><Insets top="20" bottom="10"/></VBox.margin>
+                                    <ImageView fx:id="imgLogo" fitHeight="96" preserveRatio="true" smooth="true"/>
+                                </HBox>
+
+                                <Region styleClass="sidebar-divider" prefHeight="1" maxWidth="Infinity">
+                                    <VBox.margin><Insets left="16" right="16" bottom="14"/></VBox.margin>
+                                </Region>
+
+                                <VBox styleClass="nav-box canvas-9patch">
+                                    <VBox.margin><Insets left="10" right="10"/></VBox.margin>
+                                    <Button fx:id="btnNavHome" styleClass="nav-btn" maxWidth="Infinity" onAction="#onHome"/>
+                                    <Button fx:id="btnNavSkin" styleClass="nav-btn" maxWidth="Infinity" onAction="#onSkin"/>
+                                    <Button fx:id="btnNavSettings" styleClass="nav-btn" maxWidth="Infinity" onAction="#onSettings"/>
+                                </VBox>
+
+                                <Pane fx:id="semmiePane" prefHeight="92" maxWidth="Infinity">
+                                    <VBox.margin><Insets top="12"/></VBox.margin>
+                                    <ImageView fx:id="imgSemmie"
+                                               fitWidth="72"
+                                               fitHeight="72"
+                                               layoutX="-90"
+                                               layoutY="8"
+                                               preserveRatio="true"/>
+                                </Pane>
+
+                                <Region VBox.vgrow="ALWAYS"/>
+
+                                <Label fx:id="lblStatus"
+                                       text="Listo para jugar"
+                                       styleClass="status-label sidebar-status-label"
+                                       maxWidth="Infinity"
+                                       wrapText="true">
+                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
+                                </Label>
+
+                                <VBox styleClass="user-box">
+                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
+                                    <Label text="USUARIO ACTUAL" styleClass="section-label"/>
+                                    <Label fx:id="lblUsername"
+                                           text="--"
+                                           styleClass="username-label"
+                                           maxWidth="Infinity"/>
+                                </VBox>
+
+                                <Button fx:id="btnDiscord"
+                                        styleClass="discord-btn"
+                                        maxWidth="Infinity"
+                                        onAction="#onDiscord">
+                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
+                                </Button>
+
+                                <Label text="v1.0.0  -  Forge 1.20.1" styleClass="version-label" maxWidth="Infinity">
+                                    <VBox.margin><Insets left="10" right="10" bottom="14"/></VBox.margin>
+                                </Label>
+                            </VBox>
+                        </content>
+                    </ScrollPane>
+                </StackPane>
+
+                <StackPane fx:id="centerLayer" HBox.hgrow="ALWAYS">
+                    <Region styleClass="center-vignette center-vignette-left" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
+                    <Region styleClass="center-vignette center-vignette-top" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
+                    <Region styleClass="center-vignette center-vignette-bottom" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
+
+                    <VBox fx:id="centerContent" alignment="CENTER" pickOnBounds="false">
+                        <padding><Insets top="22" right="30" bottom="24" left="30"/></padding>
+                        <ImageView fx:id="imgTitle" fitHeight="380" preserveRatio="true" smooth="true"/>
+                        <Region fx:id="titleGap" prefHeight="16"/>
+                        <StackPane>
+                            <ImageView fx:id="imgPlayBtn"
+                                       fitWidth="180"
+                                       fitHeight="180"
+                                       managed="false"
+                                       visible="false"
+                                       preserveRatio="true"
+                                       smooth="false"/>
+                            <Button fx:id="btnPlay" text="JUGAR" styleClass="play-btn" onAction="#onPlay"/>
+                        </StackPane>
+                        <Region fx:id="statusGap" prefHeight="14"/>
+                    </VBox>
+
+                    <ScrollPane fx:id="settingsScroll"
+                                styleClass="settings-scroll"
+                                fitToWidth="true"
+                                hbarPolicy="NEVER"
+                                vbarPolicy="AS_NEEDED"
+                                visible="false"
+                                managed="false"
+                                maxWidth="Infinity"
+                                maxHeight="Infinity">
+                        <content>
+                            <VBox fx:id="settingsRoot" styleClass="settings-root" spacing="16">
+                                <padding><Insets top="24" right="34" bottom="24" left="34"/></padding>
+
+                                <Label text="Configuracion del Launcher (Fabric)" styleClass="settings-title"/>
+                                <Label text="Opciones esenciales del launcher para SemenCraft."
+                                       styleClass="settings-subtitle"
+                                       wrapText="true"/>
+
+                                <VBox styleClass="settings-section" spacing="10">
+                                    <Label text="Modpack" styleClass="settings-section-title"/>
+                                    <Label text="Elige entre experiencia completa o un perfil mas ligero." styleClass="settings-hint"/>
+                                    <ComboBox fx:id="cmbModpack" styleClass="settings-combo" maxWidth="Infinity"/>
+                                </VBox>
+
+                                <VBox styleClass="settings-section" spacing="10">
+                                    <Label text="Video y rendimiento" styleClass="settings-section-title"/>
+                                    <HBox spacing="10" alignment="CENTER_LEFT">
+                                        <Label text="RAM asignada" styleClass="settings-field-label"/>
+                                        <Region HBox.hgrow="ALWAYS"/>
+                                        <Label fx:id="lblRamValue" text="6 GB" styleClass="settings-value"/>
+                                    </HBox>
+                                    <Slider fx:id="sliderRam" min="2" max="16" value="6" majorTickUnit="2" minorTickCount="1" blockIncrement="1"/>
+
+                                    <Label text="Modo de ventana" styleClass="settings-field-label"/>
+                                    <ComboBox fx:id="cmbLaunchMode" styleClass="settings-combo" maxWidth="Infinity"/>
+
+                                    <Label text="Resolucion (solo ventana)" styleClass="settings-field-label"/>
+                                    <TextField fx:id="txtResolution"
+                                               styleClass="settings-field"
+                                               promptText="1280x720"/>
+
+                                    <CheckBox fx:id="chkBorderlessWindow"
+                                              text="Usar ventana sin bordes (borderless)"
+                                              styleClass="settings-check"/>
+                                    <CheckBox fx:id="chkCloseLauncherOnStart" text="Cerrar launcher al iniciar el juego" styleClass="settings-check"/>
+                                    <CheckBox fx:id="chkDiscordRpc" text="Activar Discord RPC" styleClass="settings-check"/>
+                                </VBox>
+
+                                <HBox spacing="10" alignment="CENTER_LEFT">
+                                    <Button fx:id="btnSaveSettings" text="Guardar configuracion" styleClass="settings-save-btn" onAction="#onSaveSettings"/>
+                                    <Label fx:id="lblSettingsStatus" text="" styleClass="settings-status"/>
+                                </HBox>
+                            </VBox>
+                        </content>
+                    </ScrollPane>
+
+                    <StackPane fx:id="loadingOverlay" visible="false" opacity="0">
+                        <Region styleClass="loading-backdrop" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
+
+                        <VBox fx:id="loadingCard"
+                              alignment="CENTER"
+                              spacing="18"
+                              pickOnBounds="false"
+                              styleClass="loading-card">
+                            <ImageView fx:id="imgLoadTitle" fitHeight="120" preserveRatio="true" smooth="true"/>
+                            <Label fx:id="lblLoadStatus" text="Iniciando..." styleClass="load-status-text"/>
+
+                            <VBox alignment="CENTER" spacing="14">
+                                <VBox spacing="6">
+                                    <HBox alignment="CENTER_LEFT">
+                                        <Label text="PROGRESO TOTAL" styleClass="progress-head-label"/>
+                                        <Region HBox.hgrow="ALWAYS"/>
+                                        <Label fx:id="lblTotalPercent" text="0%" styleClass="progress-percent-label"/>
+                                    </HBox>
+                                    <StackPane fx:id="progressTrackTotal" styleClass="progress-track" prefHeight="12" prefWidth="390">
+                                        <Region fx:id="progressFillTotal"
+                                                styleClass="progress-fill progress-fill-total"
+                                                prefHeight="12"
+                                                prefWidth="0"
+                                                StackPane.alignment="CENTER_LEFT"/>
+                                    <Region fx:id="progressIndTotal"
+                                            styleClass="progress-indicator progress-indicator-total"
+                                            prefWidth="74"
+                                            prefHeight="8"
+                                            StackPane.alignment="CENTER_LEFT"/>
+                                    </StackPane>
+                                </VBox>
+
+                                <VBox spacing="6">
+                                    <HBox alignment="CENTER_LEFT">
+                                        <Label text="DESCARGA ACTUAL" styleClass="progress-head-label"/>
+                                        <Region HBox.hgrow="ALWAYS"/>
+                                        <Label fx:id="lblDownloadPercent" text="0%" styleClass="progress-percent-label"/>
+                                    </HBox>
+                                    <StackPane fx:id="progressTrackDownload" styleClass="progress-track" prefHeight="12" prefWidth="390">
+                                        <Region fx:id="progressFillDownload"
+                                                styleClass="progress-fill progress-fill-download"
+                                                prefHeight="12"
+                                                prefWidth="0"
+                                                StackPane.alignment="CENTER_LEFT"/>
+                                    <Region fx:id="progressIndDownload"
+                                            styleClass="progress-indicator progress-indicator-download"
+                                            prefWidth="74"
+                                            prefHeight="8"
+                                            StackPane.alignment="CENTER_LEFT"/>
+                                    </StackPane>
+                                </VBox>
+
+                                <HBox fx:id="timerRow" prefWidth="390" alignment="CENTER_LEFT">
+                                    <Label fx:id="lblTimer" styleClass="timer-label"/>
+                                </HBox>
+                            </VBox>
+                        </VBox>
+                    </StackPane>
+
+                    <fx:include fx:id="login" source="login.fxml"/>
+                </StackPane>
+            </HBox>
+        </StackPane>
+    </center>
+
+</BorderPane>

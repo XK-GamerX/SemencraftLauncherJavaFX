@@ -1,14 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="$CONTROLLER_NAME$"
-            prefHeight="400.0" prefWidth="600.0" >
+<StackPane xmlns:fx="http://javafx.com/fxml/1"
+           fx:id="loginRoot"
+           fx:controller="com.semencraft.semencraftlauncherjavafx.LoginController"
+           maxWidth="Infinity"
+           maxHeight="Infinity"
+           styleClass="login-root">
 
-</AnchorPane>
+    <Region fx:id="loginBackdrop" styleClass="login-backdrop" maxWidth="Infinity" maxHeight="Infinity"/>
+
+    <ScrollPane fx:id="loginScroll"
+                styleClass="login-scroll"
+                fitToWidth="true"
+                fitToHeight="true"
+                hbarPolicy="NEVER"
+                vbarPolicy="NEVER"
+                maxWidth="Infinity"
+                maxHeight="Infinity">
+        <content>
+            <VBox fx:id="loginOuter"
+                  alignment="CENTER"
+                  maxWidth="Infinity"
+                  maxHeight="Infinity"
+                  fillWidth="true">
+
+                <VBox fx:id="loginCard"
+                      styleClass="login-card"
+                      alignment="CENTER"
+                      minWidth="320"
+                      spacing="0">
+
+                    <HBox alignment="CENTER">
+                        <VBox.margin><Insets top="6" bottom="10"/></VBox.margin>
+                        <ImageView fx:id="imgLoginLogo" preserveRatio="true" smooth="true"/>
+                    </HBox>
+
+                    <Label text="Iniciar sesion en SemenCraft" styleClass="login-subtitle">
+                        <VBox.margin><Insets bottom="32"/></VBox.margin>
+                    </Label>
+
+                    <Label text="USUARIO" styleClass="login-field-lbl">
+                        <VBox.margin><Insets left="2"/></VBox.margin>
+                    </Label>
+                    <TextField fx:id="txtUsername"
+                               styleClass="login-underline-field"
+                               promptText="Tu nombre de usuario"
+                               maxWidth="Infinity">
+                        <VBox.margin><Insets bottom="22"/></VBox.margin>
+                    </TextField>
+
+                    <Label text="CONTRASENA" styleClass="login-field-lbl">
+                        <VBox.margin><Insets left="2"/></VBox.margin>
+                    </Label>
+                    <TextField fx:id="txtPassword"
+                               styleClass="login-underline-field"
+                               promptText="********"
+                               maxWidth="Infinity">
+                        <VBox.margin><Insets bottom="14"/></VBox.margin>
+                    </TextField>
+
+                    <Label fx:id="lblError" text="" styleClass="login-error-lbl" maxWidth="Infinity">
+                        <VBox.margin><Insets bottom="18"/></VBox.margin>
+                    </Label>
+
+                    <Button fx:id="btnLogin"
+                            text="ENTRAR"
+                            styleClass="login-green-btn"
+                            maxWidth="Infinity"
+                            onAction="#onLogin">
+                        <VBox.margin><Insets bottom="4"/></VBox.margin>
+                    </Button>
+
+                </VBox>
+            </VBox>
+        </content>
+    </ScrollPane>
+
+</StackPane>
