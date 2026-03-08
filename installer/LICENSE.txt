@@ -1,0 +1,7 @@
+Semencraft Launcher
+Copyright (c) 2026 Khel Palacios
+
+Este instalador distribuye el launcher oficial de Semencraft.
+Autor y credito principal: Khel Palacios.
+
+Todos los derechos reservados por sus respectivos propietarios.
