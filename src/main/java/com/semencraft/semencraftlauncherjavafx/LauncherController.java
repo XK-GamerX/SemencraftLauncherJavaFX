@@ -23,12 +23,16 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ComboBoxBase;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Skin;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.skin.ComboBoxListViewSkin;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
@@ -38,6 +42,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.Scene;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -45,11 +50,17 @@ import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class LauncherController {
@@ -81,9 +92,25 @@ public class LauncherController {
     @FXML private Label lblStatus;
     @FXML private Region titleGap;
     @FXML private Region statusGap;
+    @FXML private VBox settingsView;
     @FXML private ScrollPane settingsScroll;
     @FXML private VBox settingsRoot;
+    @FXML private Button btnSettingsTabGeneral;
+    @FXML private Button btnSettingsTabModpacks;
+    @FXML private Button btnSettingsTabSystem;
+    @FXML private Label lblJavaRuntimeStatus;
+    @FXML private VBox paneSettingsGeneral;
+    @FXML private VBox paneSettingsModpacks;
+    @FXML private VBox paneSettingsSystem;
     @FXML private ComboBox<String> cmbModpack;
+    @FXML private TextField txtModSearch;
+    @FXML private ComboBox<String> cmbModsTypeFilter;
+    @FXML private ComboBox<String> cmbModsSectionFilter;
+    @FXML private Label lblModsCount;
+    @FXML private Button btnModsPrevPage;
+    @FXML private Label lblModsPage;
+    @FXML private Button btnModsNextPage;
+    @FXML private VBox modsListContainer;
     @FXML private Slider sliderRam;
     @FXML private Label lblRamValue;
     @FXML private ComboBox<String> cmbLaunchMode;
@@ -91,8 +118,11 @@ public class LauncherController {
     @FXML private CheckBox chkBorderlessWindow;
     @FXML private CheckBox chkCloseLauncherOnStart;
     @FXML private CheckBox chkDiscordRpc;
+    @FXML private HBox settingsActionBar;
     @FXML private Button btnSaveSettings;
+    @FXML private Button btnDiscardSettings;
     @FXML private Label lblSettingsStatus;
+    @FXML private Label lblSystemJavaDetails;
 
     @FXML private StackPane loadingOverlay;
     @FXML private VBox loadingCard;
@@ -108,6 +138,11 @@ public class LauncherController {
     @FXML private StackPane progressTrackTotal;
     @FXML private StackPane progressTrackDownload;
     @FXML private HBox timerRow;
+    @FXML private StackPane startupOverlay;
+    @FXML private Label lblStartupStatus;
+    @FXML private StackPane startupProgressTrack;
+    @FXML private Region startupProgressFill;
+    @FXML private Label lblStartupPercent;
 
     @FXML private StackPane login;
     @FXML private LoginController loginController;
@@ -134,18 +169,41 @@ public class LauncherController {
     private final GaussianBlur loginBlurHeavy = new GaussianBlur(18);
     private final ColorAdjust playDisabledEffect = new ColorAdjust(0.0, -0.12, -0.68, 0.0);
     private final DiscordRpcService discordRpc = new DiscordRpcService();
+    private final ModpackManager modpackManager = new ModpackManager();
     private LauncherStorage.LauncherConfig persistedConfig = LauncherStorage.LauncherConfig.defaults();
+    private ModpackManager.Catalog modpackCatalog;
+    private ModpackManager.Selection persistedModSelection;
+    private ModpackManager.Selection workingModSelection;
+    private final List<ModpackManager.OptionalEntry> filteredModEntries = new ArrayList<>();
+    private final Map<String, Image> entryIconCache = new HashMap<>();
     private Image playImageDefault;
     private Image playImageHover;
     private Image playImagePressed;
+    private Image modEntryIcon;
+    private Image resourcepackEntryIcon;
     private Timeline minecraftStatePoller;
     private Process minecraftProcess;
     private String activeLoaderVersion = "";
     private String cachedMinecraftDirLower;
+    private int modsPageIndex;
+    private boolean suppressModpackTemplateEvents;
+    private boolean settingsActionBarVisible;
+    private Timeline actionButtonsFloatTimeline;
+    private boolean startupCatalogReady;
+    private boolean startupJavaReady;
+    private boolean startupDismissed;
+    private long startupOverlayShownAtMs;
+    private SettingsSection currentSettingsSection = SettingsSection.GENERAL;
 
     private double totalProgress;
     private double downloadProgress;
+    private double startupProgressValue;
 
+    private static final int MODS_PAGE_SIZE = 7;
+    private static final String FILTER_TYPE_ALL_LABEL = "Todos los mods";
+    private static final String FILTER_TYPE_MODS_LABEL = "Solo mods";
+    private static final String FILTER_TYPE_RESOURCEPACKS_LABEL = "Solo resourcepacks";
+    private static final String FILTER_SECTION_ALL_LABEL = "Todas las secciones";
     private static final double PROGRESS_FALLBACK_W = 390.0;
     private static final String[] LOAD_STEPS = {
             "Verificando cliente...",
@@ -162,10 +220,17 @@ public class LauncherController {
         SETTINGS
     }
 
+    private enum SettingsSection {
+        GENERAL,
+        MODPACKS,
+        SYSTEM
+    }
+
     @FXML
     public void initialize() {
+        beginStartupOverlay();
         loadImages();
-        PixelNinePatchSupport.apply(sidebar);
+        updateStartupProgress(0.18, "Cargando interfaz...");
         setupSidebarGlass();
         setupStageResolver();
         setupResponsiveBindings();
@@ -173,6 +238,7 @@ public class LauncherController {
         setupDiscordButton();
         setupLoadingVisuals();
         setupSettingsView();
+        updateStartupProgress(0.34, "Aplicando configuracion...");
         bootstrapSavedSession();
 
         if (loginController != null) {
@@ -184,6 +250,7 @@ public class LauncherController {
         startMinecraftStatePolling();
         animateEntrance();
         scheduleSemmie();
+        updateStartupProgress(0.48, "Preparando recursos...");
     }
 
     public void setStage(Stage stage) {
@@ -462,6 +529,10 @@ public class LauncherController {
 
             loadingCard.maxWidthProperty().bind(clamp(loadingOverlay.widthProperty().multiply(0.58), 340, 580));
             imgLoadTitle.fitHeightProperty().bind(clamp(loadingOverlay.heightProperty().multiply(0.17), 90, 164));
+            if (startupProgressTrack != null && startupOverlay != null) {
+                startupProgressTrack.prefWidthProperty().bind(clamp(startupOverlay.widthProperty().multiply(0.26), 190, 310));
+                startupProgressTrack.widthProperty().addListener((obs, oldV, newV) -> updateStartupProgress(startupProgressValue, null));
+            }
 
             if (settingsRoot != null) {
                 settingsRoot.maxWidthProperty().bind(clamp(centerLayer.widthProperty().multiply(0.92), 680, 1040));
@@ -542,6 +613,79 @@ public class LauncherController {
         clip.widthProperty().bind(region.widthProperty());
         clip.heightProperty().bind(region.heightProperty());
         region.setClip(clip);
+    }
+
+    private void beginStartupOverlay() {
+        startupCatalogReady = false;
+        startupJavaReady = false;
+        startupDismissed = false;
+        startupOverlayShownAtMs = System.currentTimeMillis();
+        if (startupOverlay == null) {
+            startupDismissed = true;
+            return;
+        }
+        startupOverlay.setVisible(true);
+        startupOverlay.setManaged(true);
+        startupOverlay.setMouseTransparent(false);
+        startupOverlay.setOpacity(1.0);
+        startupOverlay.toFront();
+        if (startupProgressFill != null) {
+            setRegionWidth(startupProgressFill, 0.0);
+        }
+        startupProgressValue = 0.0;
+        if (lblStartupPercent != null) {
+            lblStartupPercent.setText("0%");
+        }
+        if (lblStartupStatus != null) {
+            lblStartupStatus.setText("Cargando Launcher");
+        }
+    }
+
+    private void updateStartupProgress(double progress, String status) {
+        if (startupDismissed || startupOverlay == null) {
+            return;
+        }
+        double clamped = clamp(progress, 0.0, 1.0);
+        startupProgressValue = clamped;
+        if (lblStartupStatus != null && status != null && !status.isBlank()) {
+            lblStartupStatus.setText(status);
+        }
+        if (lblStartupPercent != null) {
+            lblStartupPercent.setText(String.format(Locale.US, "%.0f%%", clamped * 100.0));
+        }
+        if (startupProgressFill != null && startupProgressTrack != null) {
+            double trackWidth = resolveTrackContentWidth(startupProgressTrack);
+            setRegionWidth(startupProgressFill, Math.rint(trackWidth * clamped));
+        }
+    }
+
+    private void tryFinishStartupOverlay() {
+        if (startupDismissed || startupOverlay == null) {
+            return;
+        }
+        if (!startupCatalogReady || !startupJavaReady) {
+            return;
+        }
+        startupDismissed = true;
+        String user = lblUsername == null ? "" : lblUsername.getText();
+        String welcome = (user == null || user.isBlank() || "--".equals(user) || "-".equals(user))
+                ? "Bienvenido a SemenCraft"
+                : "Bienvenido, " + user;
+        updateStartupProgress(1.0, welcome);
+        if (lblStartupPercent != null) {
+            lblStartupPercent.setText("100%");
+        }
+        long elapsed = System.currentTimeMillis() - startupOverlayShownAtMs;
+        int waitMs = (int) Math.max(0, 900 - elapsed) + 1000;
+        delay(waitMs, () -> {
+            FadeTransition out = fade(startupOverlay, 0.0, 340);
+            out.setOnFinished(event -> {
+                startupOverlay.setVisible(false);
+                startupOverlay.setManaged(false);
+                startupOverlay.setMouseTransparent(true);
+            });
+            out.play();
+        });
     }
 
     private void onLoginSuccess(String username) {
@@ -940,15 +1084,31 @@ public class LauncherController {
 
     private void setupSettingsView() {
         LauncherStorage.ensureEnvironment();
+        modEntryIcon = loadAsset("icon.png");
+        resourcepackEntryIcon = loadAsset("circular-blue.png");
+
         if (settingsScroll != null) {
             settingsScroll.setPannable(true);
             settingsScroll.setFitToWidth(true);
         }
+        if (settingsView != null) {
+            settingsView.setVisible(false);
+            settingsView.setManaged(false);
+        }
+        if (settingsActionBar != null) {
+            settingsActionBar.setMaxHeight(Region.USE_PREF_SIZE);
+            settingsActionBar.setVisible(false);
+            settingsActionBar.setManaged(false);
+            settingsActionBar.setMouseTransparent(true);
+            settingsActionBarVisible = false;
+            stopActionButtonsFloatAnimation();
+        }
 
         if (cmbModpack != null) {
             cmbModpack.getItems().setAll(
-                    "Normal",
-                    "Optimizado"
+                    ModpackManager.TEMPLATE_NORMAL,
+                    ModpackManager.TEMPLATE_OPTIMIZED,
+                    ModpackManager.TEMPLATE_CUSTOM
             );
         }
         if (cmbLaunchMode != null) {
@@ -958,11 +1118,32 @@ public class LauncherController {
                     "Ventana maximizada"
             );
         }
+        if (cmbModsTypeFilter != null) {
+            cmbModsTypeFilter.getItems().setAll(
+                    FILTER_TYPE_ALL_LABEL,
+                    FILTER_TYPE_MODS_LABEL,
+                    FILTER_TYPE_RESOURCEPACKS_LABEL
+            );
+            cmbModsTypeFilter.getSelectionModel().select(FILTER_TYPE_ALL_LABEL);
+            cmbModsTypeFilter.setPromptText("Tipo de filtro");
+        }
+        if (cmbModsSectionFilter != null) {
+            cmbModsSectionFilter.getItems().setAll(FILTER_SECTION_ALL_LABEL);
+            cmbModsSectionFilter.getSelectionModel().select(FILTER_SECTION_ALL_LABEL);
+            cmbModsSectionFilter.setPromptText("Seccion de mods");
+        }
+        installComboPopupAnimation(cmbModpack);
+        installComboPopupAnimation(cmbLaunchMode);
+        installComboPopupAnimation(cmbModsTypeFilter);
+        installComboPopupAnimation(cmbModsSectionFilter);
 
         persistedConfig = LauncherStorage.loadConfig();
         applyConfigToControls(persistedConfig);
         registerSettingsDirtyListeners();
         installSettingsTooltips();
+        loadModpackCatalogAsync();
+        refreshJavaRuntimeStatusAsync();
+        applySettingsSection(SettingsSection.GENERAL, false);
         refreshSaveState();
         if (lblSettingsStatus != null) {
             lblSettingsStatus.setOpacity(0.0);
@@ -974,10 +1155,13 @@ public class LauncherController {
         installSideTooltip(chkBorderlessWindow, "Quita bordes de la ventana para un look mas limpio.");
         installSideTooltip(chkCloseLauncherOnStart, "Si se activa, el launcher se cierra al abrir Minecraft.");
         installSideTooltip(chkDiscordRpc, "Activa/desactiva Discord Rich Presence para el launcher.");
-        installSideTooltip(cmbModpack, "Normal: experiencia completa. Optimizado: menos carga para mejor FPS.");
+        installSideTooltip(cmbModpack, "Normal: todo activado. Optimizada: rendimiento recomendado. Custom: cambios manuales.");
         installSideTooltip(cmbLaunchMode, "Selecciona como se abrira el juego al iniciar.");
         installSideTooltip(txtResolution, "Formato recomendado: ancho x alto, por ejemplo 1280x720.");
         installSideTooltip(sliderRam, "Asigna memoria al juego. No uses mas de lo que tu PC soporta.");
+        installSideTooltip(txtModSearch, "Busca por nombre interno del mod leyendo metadata del .jar.");
+        installSideTooltip(cmbModsSectionFilter, "Filtra por secciones de mods.");
+        installSideTooltip(cmbModsTypeFilter, "Filtra por tipo: todos, mods o resourcepacks.");
     }
 
     private static void installSideTooltip(Control control, String text) {
@@ -1003,6 +1187,113 @@ public class LauncherController {
         control.sceneProperty().addListener((obs, oldScene, newScene) -> tip.hide());
     }
 
+    private static void installComboPopupAnimation(ComboBox<?> combo) {
+        if (combo == null) {
+            return;
+        }
+        if (Boolean.TRUE.equals(combo.getProperties().get("popup-anim-installed"))) {
+            return;
+        }
+        combo.getProperties().put("popup-anim-installed", Boolean.TRUE);
+        combo.getProperties().put("popup-close-animating", Boolean.FALSE);
+        combo.getProperties().put("popup-close-allow-hide", Boolean.FALSE);
+
+        combo.addEventFilter(ComboBoxBase.ON_HIDING, event -> {
+            if (Boolean.TRUE.equals(combo.getProperties().get("popup-close-allow-hide"))) {
+                combo.getProperties().put("popup-close-allow-hide", Boolean.FALSE);
+                return;
+            }
+            if (Boolean.TRUE.equals(combo.getProperties().get("popup-close-animating"))) {
+                event.consume();
+                return;
+            }
+            Node popupContent = resolveComboPopupContent(combo);
+            if (popupContent == null || !popupContent.isVisible()) {
+                return;
+            }
+            event.consume();
+            combo.getProperties().put("popup-close-animating", Boolean.TRUE);
+            Timeline close = new Timeline(
+                    new KeyFrame(Duration.ZERO,
+                            new KeyValue(popupContent.opacityProperty(), 1.0),
+                            new KeyValue(popupContent.translateYProperty(), 0.0),
+                            new KeyValue(popupContent.scaleYProperty(), 1.0)),
+                    new KeyFrame(Duration.millis(120),
+                            new KeyValue(popupContent.opacityProperty(), 0.0),
+                            new KeyValue(popupContent.translateYProperty(), -8.0),
+                            new KeyValue(popupContent.scaleYProperty(), 0.93))
+            );
+            close.setOnFinished(done -> {
+                combo.getProperties().put("popup-close-animating", Boolean.FALSE);
+                combo.getProperties().put("popup-close-allow-hide", Boolean.TRUE);
+                combo.hide();
+            });
+            close.play();
+        });
+
+        combo.showingProperty().addListener((obs, wasShowing, isShowing) -> {
+            if (isShowing) {
+                Timeline pulse = new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(combo.scaleXProperty(), 1.0), new KeyValue(combo.scaleYProperty(), 1.0)),
+                        new KeyFrame(Duration.millis(120), new KeyValue(combo.scaleXProperty(), 1.03), new KeyValue(combo.scaleYProperty(), 1.03)),
+                        new KeyFrame(Duration.millis(220), new KeyValue(combo.scaleXProperty(), 1.0), new KeyValue(combo.scaleYProperty(), 1.0))
+                );
+                pulse.play();
+                Platform.runLater(() -> {
+                    Node popupContent = resolveComboPopupContent(combo);
+                    if (popupContent == null) {
+                        return;
+                    }
+                    popupContent.setOpacity(0.0);
+                    popupContent.setTranslateY(-9.0);
+                    popupContent.setScaleY(0.94);
+                    Timeline reveal = new Timeline(
+                            new KeyFrame(Duration.ZERO,
+                                    new KeyValue(popupContent.opacityProperty(), 0.0),
+                                    new KeyValue(popupContent.translateYProperty(), -9.0),
+                                    new KeyValue(popupContent.scaleYProperty(), 0.94)),
+                            new KeyFrame(Duration.millis(180),
+                                    new KeyValue(popupContent.opacityProperty(), 1.0),
+                                    new KeyValue(popupContent.translateYProperty(), 0.0),
+                                    new KeyValue(popupContent.scaleYProperty(), 1.0))
+                    );
+                    reveal.play();
+                });
+                return;
+            }
+            Platform.runLater(() -> {
+                Node popupContent = resolveComboPopupContent(combo);
+                if (popupContent != null) {
+                    popupContent.setTranslateY(0.0);
+                    popupContent.setScaleY(1.0);
+                }
+            });
+            Timeline settle = new Timeline(
+                    new KeyFrame(Duration.ZERO,
+                            new KeyValue(combo.translateYProperty(), 0.0),
+                            new KeyValue(combo.opacityProperty(), 1.0)),
+                    new KeyFrame(Duration.millis(90),
+                            new KeyValue(combo.translateYProperty(), 2.0),
+                            new KeyValue(combo.opacityProperty(), 0.94)),
+                    new KeyFrame(Duration.millis(190),
+                            new KeyValue(combo.translateYProperty(), 0.0),
+                            new KeyValue(combo.opacityProperty(), 1.0))
+            );
+            settle.play();
+        });
+    }
+
+    private static Node resolveComboPopupContent(ComboBox<?> combo) {
+        if (combo == null) {
+            return null;
+        }
+        Skin<?> skin = combo.getSkin();
+        if (skin instanceof ComboBoxListViewSkin<?> listSkin) {
+            return listSkin.getPopupContent();
+        }
+        return null;
+    }
+
     private void registerSettingsDirtyListeners() {
         if (settingsListenersBound) {
             return;
@@ -1016,7 +1307,7 @@ public class LauncherController {
             });
         }
         if (cmbModpack != null) {
-            cmbModpack.valueProperty().addListener((obs, oldV, newV) -> onSettingsEdited());
+            cmbModpack.valueProperty().addListener((obs, oldV, newV) -> onTemplateSelectionChanged());
         }
         if (cmbLaunchMode != null) {
             cmbLaunchMode.valueProperty().addListener((obs, oldV, newV) -> onSettingsEdited());
@@ -1036,6 +1327,29 @@ public class LauncherController {
                 applyDiscordRpcPreference(Boolean.TRUE.equals(newV));
             });
         }
+        if (txtModSearch != null) {
+            txtModSearch.textProperty().addListener((obs, oldV, newV) -> {
+                modsPageIndex = 0;
+                refreshModEntriesView();
+            });
+        }
+        if (cmbModsTypeFilter != null) {
+            cmbModsTypeFilter.valueProperty().addListener((obs, oldV, newV) -> {
+                if (FILTER_TYPE_RESOURCEPACKS_LABEL.equals(newV)
+                        && cmbModsSectionFilter != null
+                        && !FILTER_SECTION_ALL_LABEL.equals(cmbModsSectionFilter.getValue())) {
+                    cmbModsSectionFilter.getSelectionModel().select(FILTER_SECTION_ALL_LABEL);
+                }
+                modsPageIndex = 0;
+                refreshModEntriesView();
+            });
+        }
+        if (cmbModsSectionFilter != null) {
+            cmbModsSectionFilter.valueProperty().addListener((obs, oldV, newV) -> {
+                modsPageIndex = 0;
+                refreshModEntriesView();
+            });
+        }
     }
 
     private void onSettingsEdited() {
@@ -1051,7 +1365,9 @@ public class LauncherController {
             sliderRam.setValue(config.ramGb());
         }
         if (cmbModpack != null) {
-            selectComboValue(cmbModpack, config.modpack(), "Normal");
+            suppressModpackTemplateEvents = true;
+            selectComboValue(cmbModpack, ModpackManager.normalizeTemplate(config.modpack()), ModpackManager.TEMPLATE_NORMAL);
+            suppressModpackTemplateEvents = false;
         }
         if (cmbLaunchMode != null) {
             selectComboValue(cmbLaunchMode, config.launchMode(), "Ventana");
@@ -1087,7 +1403,9 @@ public class LauncherController {
 
     private LauncherStorage.LauncherConfig captureCurrentConfig() {
         int ram = sliderRam != null ? (int) Math.round(sliderRam.getValue()) : 6;
-        String modpack = cmbModpack != null && cmbModpack.getValue() != null ? cmbModpack.getValue() : "Normal";
+        String modpack = cmbModpack != null && cmbModpack.getValue() != null
+                ? ModpackManager.normalizeTemplate(cmbModpack.getValue())
+                : ModpackManager.TEMPLATE_NORMAL;
         String mode = cmbLaunchMode != null && cmbLaunchMode.getValue() != null ? cmbLaunchMode.getValue() : "Ventana";
         String resolution = txtResolution != null && !txtResolution.getText().trim().isEmpty()
                 ? txtResolution.getText().trim()
@@ -1102,8 +1420,83 @@ public class LauncherController {
         if (btnSaveSettings == null) {
             return;
         }
-        boolean dirty = !captureCurrentConfig().equals(persistedConfig);
+        boolean dirty = hasPendingSettingsChanges();
         btnSaveSettings.setDisable(!dirty);
+        if (btnDiscardSettings != null) {
+            btnDiscardSettings.setDisable(!dirty);
+        }
+        if (settingsActionBar != null) {
+            updateSettingsActionBarVisibility(dirty);
+        }
+    }
+
+    private void updateSettingsActionBarVisibility(boolean visible) {
+        if (settingsActionBar == null) {
+            return;
+        }
+        if (visible == settingsActionBarVisible && settingsActionBar.isManaged() == visible) {
+            return;
+        }
+        settingsActionBarVisible = visible;
+        if (visible) {
+            settingsActionBar.setManaged(true);
+            settingsActionBar.setVisible(true);
+            settingsActionBar.setMouseTransparent(false);
+            settingsActionBar.setOpacity(0.0);
+            settingsActionBar.setTranslateY(20);
+            ParallelTransition in = parallel(
+                    fade(settingsActionBar, 1.0, 220),
+                    slideY(settingsActionBar, 0.0, 220)
+            );
+            in.play();
+            startActionButtonsFloatAnimation();
+            return;
+        }
+        stopActionButtonsFloatAnimation();
+        ParallelTransition out = parallel(
+                fade(settingsActionBar, 0.0, 180),
+                slideY(settingsActionBar, 18.0, 180)
+        );
+        out.setOnFinished(event -> {
+            settingsActionBar.setVisible(false);
+            settingsActionBar.setManaged(false);
+            settingsActionBar.setMouseTransparent(true);
+            settingsActionBar.setTranslateY(0.0);
+        });
+        out.play();
+    }
+
+    private void startActionButtonsFloatAnimation() {
+        if (btnSaveSettings == null || btnDiscardSettings == null) {
+            return;
+        }
+        stopActionButtonsFloatAnimation();
+        actionButtonsFloatTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        new KeyValue(btnSaveSettings.translateYProperty(), 0.0),
+                        new KeyValue(btnDiscardSettings.translateYProperty(), 0.0)),
+                new KeyFrame(Duration.millis(900),
+                        new KeyValue(btnSaveSettings.translateYProperty(), -2.5),
+                        new KeyValue(btnDiscardSettings.translateYProperty(), -2.5)),
+                new KeyFrame(Duration.millis(1800),
+                        new KeyValue(btnSaveSettings.translateYProperty(), 0.0),
+                        new KeyValue(btnDiscardSettings.translateYProperty(), 0.0))
+        );
+        actionButtonsFloatTimeline.setCycleCount(Animation.INDEFINITE);
+        actionButtonsFloatTimeline.play();
+    }
+
+    private void stopActionButtonsFloatAnimation() {
+        if (actionButtonsFloatTimeline != null) {
+            actionButtonsFloatTimeline.stop();
+            actionButtonsFloatTimeline = null;
+        }
+        if (btnSaveSettings != null) {
+            btnSaveSettings.setTranslateY(0.0);
+        }
+        if (btnDiscardSettings != null) {
+            btnDiscardSettings.setTranslateY(0.0);
+        }
     }
 
     private void updateRamLabel() {
@@ -1112,6 +1505,484 @@ public class LauncherController {
         }
         int ramGb = (int) Math.round(sliderRam.getValue());
         lblRamValue.setText(ramGb + " GB");
+    }
+
+    private boolean hasPendingSettingsChanges() {
+        if (!captureCurrentConfig().equals(persistedConfig)) {
+            return true;
+        }
+        ModpackManager.Selection currentSelection = captureCurrentModSelection();
+        ModpackManager.Selection savedSelection = persistedModSelection;
+        if (currentSelection == null && savedSelection == null) {
+            return false;
+        }
+        if (currentSelection == null || savedSelection == null) {
+            return true;
+        }
+        if (!currentSelection.selectedTemplate().equals(savedSelection.selectedTemplate())) {
+            return true;
+        }
+        if (!currentSelection.baseTemplate().equals(savedSelection.baseTemplate())) {
+            return true;
+        }
+        return !currentSelection.enabledOptionalIds().equals(savedSelection.enabledOptionalIds());
+    }
+
+    private void loadModpackCatalogAsync() {
+        setModListMessage("Cargando modpack...");
+        updateStartupProgress(0.56, "Cargando modpacks desde GitHub...");
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return modpackManager.loadCatalog();
+                    } catch (Exception ignored) {
+                        return null;
+                    }
+                })
+                .thenAccept(catalog -> Platform.runLater(() -> {
+                    if (catalog == null) {
+                        setModListMessage("No se pudo cargar SemencraftModpacks.");
+                        startupCatalogReady = true;
+                        updateStartupProgress(0.76, "Modpacks no disponibles (modo fallback).");
+                        tryFinishStartupOverlay();
+                        return;
+                    }
+                    modpackCatalog = catalog;
+                    initializeModpackSelectionState();
+                    refreshModEntriesView();
+                    refreshSaveState();
+                    startupCatalogReady = true;
+                    updateStartupProgress(0.82, "Modpacks listos.");
+                    tryFinishStartupOverlay();
+                }));
+    }
+
+    private void initializeModpackSelectionState() {
+        if (modpackCatalog == null) {
+            return;
+        }
+        entryIconCache.clear();
+        String template = cmbModpack != null && cmbModpack.getValue() != null
+                ? ModpackManager.normalizeTemplate(cmbModpack.getValue())
+                : ModpackManager.TEMPLATE_NORMAL;
+        ModpackManager.Selection initialSelection;
+        if (ModpackManager.TEMPLATE_CUSTOM.equals(template)) {
+            ModpackManager.Selection savedCustom = modpackManager.loadSavedCustomSelection(modpackCatalog);
+            initialSelection = savedCustom != null
+                    ? modpackManager.normalizeSelection(modpackCatalog, savedCustom)
+                    : modpackManager.defaultSelectionForTemplate(modpackCatalog, ModpackManager.TEMPLATE_CUSTOM);
+        } else {
+            initialSelection = modpackManager.defaultSelectionForTemplate(modpackCatalog, template);
+        }
+        persistedModSelection = modpackManager.normalizeSelection(modpackCatalog, initialSelection);
+        workingModSelection = modpackManager.normalizeSelection(modpackCatalog, initialSelection);
+        rebuildSectionFilterOptions();
+    }
+
+    private void rebuildSectionFilterOptions() {
+        if (cmbModsSectionFilter == null) {
+            return;
+        }
+        List<String> options = new ArrayList<>();
+        options.add(FILTER_SECTION_ALL_LABEL);
+        if (modpackCatalog != null) {
+            for (String section : modpackCatalog.sections()) {
+                if (!ModpackManager.SECTION_RESOURCEPACKS.equalsIgnoreCase(section)) {
+                    options.add(section);
+                }
+            }
+        }
+        String selected = cmbModsSectionFilter.getValue();
+        cmbModsSectionFilter.getItems().setAll(options);
+        if (selected != null && options.contains(selected)) {
+            cmbModsSectionFilter.getSelectionModel().select(selected);
+        } else {
+            cmbModsSectionFilter.getSelectionModel().select(FILTER_SECTION_ALL_LABEL);
+        }
+    }
+
+    private void onTemplateSelectionChanged() {
+        if (suppressModpackTemplateEvents || !settingsWatchEnabled) {
+            return;
+        }
+        if (modpackCatalog == null) {
+            onSettingsEdited();
+            return;
+        }
+        String template = cmbModpack == null ? ModpackManager.TEMPLATE_NORMAL : ModpackManager.normalizeTemplate(cmbModpack.getValue());
+        if (ModpackManager.TEMPLATE_CUSTOM.equals(template)) {
+            ModpackManager.Selection savedCustom = modpackManager.loadSavedCustomSelection(modpackCatalog);
+            workingModSelection = savedCustom != null
+                    ? modpackManager.normalizeSelection(modpackCatalog, savedCustom)
+                    : modpackManager.defaultSelectionForTemplate(modpackCatalog, ModpackManager.TEMPLATE_CUSTOM);
+        } else {
+            workingModSelection = modpackManager.defaultSelectionForTemplate(modpackCatalog, template);
+        }
+        modsPageIndex = 0;
+        refreshModEntriesView();
+        onSettingsEdited();
+    }
+
+    private void refreshModEntriesView() {
+        if (modsListContainer == null) {
+            return;
+        }
+        modsListContainer.getChildren().clear();
+        filteredModEntries.clear();
+
+        if (modpackCatalog == null) {
+            setModListMessage("Cargando modpack...");
+            updateModPaginationState();
+            return;
+        }
+
+        String query = txtModSearch == null || txtModSearch.getText() == null
+                ? ""
+                : txtModSearch.getText().trim().toLowerCase(Locale.ROOT);
+        String typeFilter = cmbModsTypeFilter == null || cmbModsTypeFilter.getValue() == null
+                ? FILTER_TYPE_ALL_LABEL
+                : cmbModsTypeFilter.getValue();
+        String sectionFilter = cmbModsSectionFilter == null || cmbModsSectionFilter.getValue() == null
+                ? FILTER_SECTION_ALL_LABEL
+                : cmbModsSectionFilter.getValue();
+
+        for (ModpackManager.OptionalEntry entry : modpackCatalog.optionalEntries()) {
+            if (!matchesTypeFilter(entry, typeFilter)) {
+                continue;
+            }
+            if (!FILTER_SECTION_ALL_LABEL.equals(sectionFilter) && !sectionFilter.equals(entry.section())) {
+                continue;
+            }
+            if (!query.isBlank()) {
+                String searchable = entry.displayName().toLowerCase(Locale.ROOT);
+                if (!searchable.contains(query)) {
+                    continue;
+                }
+            }
+            filteredModEntries.add(entry);
+        }
+
+        int totalPages = Math.max(1, (int) Math.ceil(filteredModEntries.size() / (double) MODS_PAGE_SIZE));
+        modsPageIndex = Math.max(0, Math.min(modsPageIndex, totalPages - 1));
+        int from = modsPageIndex * MODS_PAGE_SIZE;
+        int to = Math.min(filteredModEntries.size(), from + MODS_PAGE_SIZE);
+
+        if (filteredModEntries.isEmpty()) {
+            setModListMessage("No hay resultados para ese filtro.");
+        } else {
+            for (int i = from; i < to; i++) {
+                modsListContainer.getChildren().add(buildModEntryRow(filteredModEntries.get(i)));
+            }
+        }
+        updateModPaginationState();
+    }
+
+    private boolean matchesTypeFilter(ModpackManager.OptionalEntry entry, String typeFilter) {
+        if (entry == null) {
+            return false;
+        }
+        if (FILTER_TYPE_ALL_LABEL.equals(typeFilter)) {
+            return true;
+        }
+        if (FILTER_TYPE_MODS_LABEL.equals(typeFilter)) {
+            return entry.type() == ModpackManager.EntryType.MOD;
+        }
+        if (FILTER_TYPE_RESOURCEPACKS_LABEL.equals(typeFilter)) {
+            return entry.type() == ModpackManager.EntryType.RESOURCEPACK;
+        }
+        return true;
+    }
+
+    private Node buildModEntryRow(ModpackManager.OptionalEntry entry) {
+        HBox row = new HBox(10);
+        row.getStyleClass().add("mod-item-row");
+        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+
+        Image icon = resolveEntryIcon(entry);
+        ImageView iconView = makeIcon(icon, 30);
+        iconView.setFitHeight(30);
+        iconView.setFitWidth(30);
+
+        Label lblName = new Label(entry.displayName());
+        lblName.getStyleClass().add("mod-item-name");
+        Label lblFile = new Label(entry.fileName());
+        lblFile.getStyleClass().add("mod-item-file");
+        Label lblSection = new Label(entry.section());
+        lblSection.getStyleClass().add("mod-item-section");
+
+        VBox textCol = new VBox(2, lblName, lblFile, lblSection);
+        HBox.setHgrow(textCol, Priority.ALWAYS);
+
+        ToggleButton toggle = new ToggleButton();
+        toggle.getStyleClass().add("mod-toggle-btn");
+        boolean enabled = workingModSelection != null && workingModSelection.isEnabled(entry.id());
+        toggle.setSelected(enabled);
+        toggle.setText(enabled ? "Activado" : "Desactivado");
+        toggle.setOnAction(event -> {
+            boolean nextValue = toggle.isSelected();
+            toggle.setText(nextValue ? "Activado" : "Desactivado");
+            applyModEntryToggle(entry, nextValue);
+        });
+
+        row.getChildren().addAll(iconView, textCol, toggle);
+        return row;
+    }
+
+    private Image resolveEntryIcon(ModpackManager.OptionalEntry entry) {
+        if (entry == null) {
+            return modEntryIcon;
+        }
+        Image cached = entryIconCache.get(entry.id());
+        if (cached != null) {
+            return cached;
+        }
+        Image resolved = null;
+        byte[] raw = entry.iconBytes();
+        if (raw != null && raw.length > 0) {
+            try {
+                resolved = new Image(new ByteArrayInputStream(raw));
+                if (resolved.isError()) {
+                    resolved = null;
+                }
+            } catch (Exception ignored) {
+                resolved = null;
+            }
+        }
+        if (resolved == null) {
+            resolved = entry.type() == ModpackManager.EntryType.MOD ? modEntryIcon : resourcepackEntryIcon;
+        }
+        if (resolved != null) {
+            entryIconCache.put(entry.id(), resolved);
+        }
+        return resolved;
+    }
+
+    private void applyModEntryToggle(ModpackManager.OptionalEntry entry, boolean enabled) {
+        if (modpackCatalog == null || entry == null) {
+            return;
+        }
+        ModpackManager.Selection base = captureCurrentModSelection();
+        if (base == null) {
+            base = modpackManager.defaultSelectionForTemplate(modpackCatalog, ModpackManager.TEMPLATE_NORMAL);
+        }
+        LinkedHashSet<String> nextEnabled = new LinkedHashSet<>(base.enabledOptionalIds());
+        if (enabled) {
+            nextEnabled.add(entry.id());
+        } else {
+            nextEnabled.remove(entry.id());
+        }
+
+        String comboTemplate = cmbModpack == null ? ModpackManager.TEMPLATE_NORMAL : ModpackManager.normalizeTemplate(cmbModpack.getValue());
+        String baseTemplate = base.baseTemplate();
+        String selectedTemplate = comboTemplate;
+        if (!ModpackManager.TEMPLATE_CUSTOM.equals(comboTemplate)) {
+            selectedTemplate = ModpackManager.TEMPLATE_CUSTOM;
+            baseTemplate = comboTemplate;
+            suppressModpackTemplateEvents = true;
+            selectComboValue(cmbModpack, ModpackManager.TEMPLATE_CUSTOM, ModpackManager.TEMPLATE_CUSTOM);
+            suppressModpackTemplateEvents = false;
+        }
+        workingModSelection = new ModpackManager.Selection(selectedTemplate, baseTemplate, nextEnabled);
+        refreshModEntriesView();
+        onSettingsEdited();
+    }
+
+    private void updateModPaginationState() {
+        int totalPages = Math.max(1, (int) Math.ceil(filteredModEntries.size() / (double) MODS_PAGE_SIZE));
+        if (lblModsPage != null) {
+            lblModsPage.setText("Pagina " + (modsPageIndex + 1) + "/" + totalPages);
+        }
+        if (lblModsCount != null) {
+            lblModsCount.setText(filteredModEntries.size() + " elemento(s)");
+        }
+        if (btnModsPrevPage != null) {
+            btnModsPrevPage.setDisable(modsPageIndex <= 0);
+        }
+        if (btnModsNextPage != null) {
+            btnModsNextPage.setDisable(modsPageIndex >= totalPages - 1);
+        }
+    }
+
+    private void setModListMessage(String message) {
+        if (modsListContainer == null) {
+            return;
+        }
+        modsListContainer.getChildren().clear();
+        Label label = new Label(message);
+        label.getStyleClass().add("settings-hint");
+        modsListContainer.getChildren().add(label);
+    }
+
+    private ModpackManager.Selection captureCurrentModSelection() {
+        if (modpackCatalog == null) {
+            return persistedModSelection;
+        }
+        String selectedTemplate = cmbModpack == null || cmbModpack.getValue() == null
+                ? ModpackManager.TEMPLATE_NORMAL
+                : ModpackManager.normalizeTemplate(cmbModpack.getValue());
+
+        if (workingModSelection == null) {
+            return modpackManager.defaultSelectionForTemplate(modpackCatalog, selectedTemplate);
+        }
+        LinkedHashSet<String> ids = new LinkedHashSet<>(workingModSelection.enabledOptionalIds());
+        String baseTemplate = workingModSelection.baseTemplate();
+        if (!ModpackManager.TEMPLATE_CUSTOM.equals(selectedTemplate)) {
+            baseTemplate = selectedTemplate;
+            ids = modpackManager.defaultEnabledIds(modpackCatalog, selectedTemplate);
+        }
+        return modpackManager.normalizeSelection(modpackCatalog, new ModpackManager.Selection(selectedTemplate, baseTemplate, ids));
+    }
+
+    private void restorePersistedSettings() {
+        applyConfigToControls(persistedConfig);
+        if (persistedModSelection != null) {
+            workingModSelection = new ModpackManager.Selection(
+                    persistedModSelection.selectedTemplate(),
+                    persistedModSelection.baseTemplate(),
+                    new LinkedHashSet<>(persistedModSelection.enabledOptionalIds())
+            );
+            suppressModpackTemplateEvents = true;
+            selectComboValue(cmbModpack, persistedModSelection.selectedTemplate(), ModpackManager.TEMPLATE_NORMAL);
+            suppressModpackTemplateEvents = false;
+        }
+        modsPageIndex = 0;
+        refreshModEntriesView();
+        refreshSaveState();
+    }
+
+    private boolean saveAllSettings() {
+        LauncherStorage.LauncherConfig currentConfig = captureCurrentConfig();
+        ModpackManager.Selection currentSelection = captureCurrentModSelection();
+        LauncherStorage.saveConfig(currentConfig);
+        persistedConfig = currentConfig;
+
+        if (currentSelection != null) {
+            persistedModSelection = currentSelection;
+            workingModSelection = currentSelection;
+            if (ModpackManager.TEMPLATE_CUSTOM.equals(currentSelection.selectedTemplate())) {
+                modpackManager.saveCustomSelection(currentSelection);
+            }
+        }
+        refreshSaveState();
+        return true;
+    }
+
+    private void shakePendingActionButtons() {
+        if (btnSaveSettings == null || btnDiscardSettings == null) {
+            return;
+        }
+        Timeline saveShake = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(btnSaveSettings.translateXProperty(), 0)),
+                new KeyFrame(Duration.millis(45), new KeyValue(btnSaveSettings.translateXProperty(), -6)),
+                new KeyFrame(Duration.millis(90), new KeyValue(btnSaveSettings.translateXProperty(), 6)),
+                new KeyFrame(Duration.millis(135), new KeyValue(btnSaveSettings.translateXProperty(), -4)),
+                new KeyFrame(Duration.millis(180), new KeyValue(btnSaveSettings.translateXProperty(), 4)),
+                new KeyFrame(Duration.millis(230), new KeyValue(btnSaveSettings.translateXProperty(), 0))
+        );
+        Timeline discardShake = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(btnDiscardSettings.translateXProperty(), 0)),
+                new KeyFrame(Duration.millis(45), new KeyValue(btnDiscardSettings.translateXProperty(), 6)),
+                new KeyFrame(Duration.millis(90), new KeyValue(btnDiscardSettings.translateXProperty(), -6)),
+                new KeyFrame(Duration.millis(135), new KeyValue(btnDiscardSettings.translateXProperty(), 4)),
+                new KeyFrame(Duration.millis(180), new KeyValue(btnDiscardSettings.translateXProperty(), -4)),
+                new KeyFrame(Duration.millis(230), new KeyValue(btnDiscardSettings.translateXProperty(), 0))
+        );
+        saveShake.playFromStart();
+        discardShake.playFromStart();
+    }
+
+    private void applySettingsSection(SettingsSection section, boolean enforceDirtyBlock) {
+        if (section == null) {
+            return;
+        }
+        if (enforceDirtyBlock && currentSettingsSection != section && hasPendingSettingsChanges()) {
+            shakePendingActionButtons();
+            showSettingsStatus("Debes guardar o descartar antes de cambiar de seccion.");
+            return;
+        }
+        currentSettingsSection = section;
+        setSectionVisible(paneSettingsGeneral, section == SettingsSection.GENERAL);
+        setSectionVisible(paneSettingsModpacks, section == SettingsSection.MODPACKS);
+        setSectionVisible(paneSettingsSystem, section == SettingsSection.SYSTEM);
+        applySettingsTabState(btnSettingsTabGeneral, section == SettingsSection.GENERAL);
+        applySettingsTabState(btnSettingsTabModpacks, section == SettingsSection.MODPACKS);
+        applySettingsTabState(btnSettingsTabSystem, section == SettingsSection.SYSTEM);
+        if (settingsScroll != null) {
+            settingsScroll.setVvalue(0.0);
+        }
+    }
+
+    private static void setSectionVisible(Node node, boolean visible) {
+        if (node == null) {
+            return;
+        }
+        node.setVisible(visible);
+        node.setManaged(visible);
+    }
+
+    private static void applySettingsTabState(Button button, boolean active) {
+        if (button == null) {
+            return;
+        }
+        if (active) {
+            if (!button.getStyleClass().contains("settings-tab-btn-active")) {
+                button.getStyleClass().add("settings-tab-btn-active");
+            }
+        } else {
+            button.getStyleClass().remove("settings-tab-btn-active");
+        }
+    }
+
+    private void refreshJavaRuntimeStatusAsync() {
+        if (lblJavaRuntimeStatus != null) {
+            lblJavaRuntimeStatus.setText("Java: verificando...");
+        }
+        if (lblSystemJavaDetails != null) {
+            lblSystemJavaDetails.setText("Java: verificando version requerida...");
+        }
+        updateStartupProgress(0.40, "Verificando Java...");
+        CompletableFuture
+                .supplyAsync(FabricMinecraftService::detectJavaRuntime)
+                .thenAccept(info -> Platform.runLater(() -> {
+                    updateJavaStatusLabels(info);
+                    startupJavaReady = true;
+                    updateStartupProgress(0.70, "Java verificado.");
+                    tryFinishStartupOverlay();
+                }));
+    }
+
+    private void updateJavaStatusLabels(FabricMinecraftService.JavaRuntimeInfo info) {
+        if (info == null || !info.available()) {
+            if (lblJavaRuntimeStatus != null) {
+                lblJavaRuntimeStatus.setText("Java: no detectado");
+                lblJavaRuntimeStatus.getStyleClass().remove("java-status-ok");
+                if (!lblJavaRuntimeStatus.getStyleClass().contains("java-status-bad")) {
+                    lblJavaRuntimeStatus.getStyleClass().add("java-status-bad");
+                }
+            }
+            if (lblSystemJavaDetails != null) {
+                lblSystemJavaDetails.setText("No se detecto Java. Instala Java " + FabricMinecraftService.REQUIRED_JAVA_MAJOR + " o superior.");
+            }
+            return;
+        }
+        int major = info.majorVersion();
+        boolean supported = major >= FabricMinecraftService.REQUIRED_JAVA_MAJOR;
+        if (lblJavaRuntimeStatus != null) {
+            lblJavaRuntimeStatus.setText("Java: " + info.versionString() + (supported ? " (OK)" : " (incompatible)"));
+            lblJavaRuntimeStatus.getStyleClass().remove("java-status-ok");
+            lblJavaRuntimeStatus.getStyleClass().remove("java-status-bad");
+            lblJavaRuntimeStatus.getStyleClass().add(supported ? "java-status-ok" : "java-status-bad");
+        }
+        if (lblSystemJavaDetails != null) {
+            if (supported) {
+                lblSystemJavaDetails.setText("Java detectado: " + info.versionString() + ". Ruta: " + info.javaBinaryPath());
+            } else {
+                lblSystemJavaDetails.setText(
+                        "Java detectado: " + info.versionString() +
+                                ". Debes usar Java " + FabricMinecraftService.REQUIRED_JAVA_MAJOR + " o superior."
+                );
+            }
+        }
     }
 
     private void animateEntrance() {
@@ -1187,11 +2058,17 @@ public class LauncherController {
 
     @FXML
     private void onHome() {
+        if (!allowSettingsViewExit()) {
+            return;
+        }
         showView(ViewMode.HOME, true);
     }
 
     @FXML
     private void onSkin() {
+        if (!allowSettingsViewExit()) {
+            return;
+        }
         showInfo("Skin Manager estara disponible en una proxima version.");
         showView(ViewMode.HOME, true);
     }
@@ -1203,11 +2080,46 @@ public class LauncherController {
 
     @FXML
     private void onSaveSettings() {
-        LauncherStorage.LauncherConfig current = captureCurrentConfig();
-        LauncherStorage.saveConfig(current);
-        persistedConfig = current;
-        refreshSaveState();
+        saveAllSettings();
         showSettingsStatus("Guardado!");
+    }
+
+    @FXML
+    private void onDiscardSettings() {
+        restorePersistedSettings();
+        showSettingsStatus("Cambios descartados.");
+    }
+
+    @FXML
+    private void onSettingsTabGeneral() {
+        applySettingsSection(SettingsSection.GENERAL, true);
+    }
+
+    @FXML
+    private void onSettingsTabModpacks() {
+        applySettingsSection(SettingsSection.MODPACKS, true);
+    }
+
+    @FXML
+    private void onSettingsTabSystem() {
+        applySettingsSection(SettingsSection.SYSTEM, true);
+    }
+
+    @FXML
+    private void onModsPrevPage() {
+        if (modsPageIndex > 0) {
+            modsPageIndex--;
+            refreshModEntriesView();
+        }
+    }
+
+    @FXML
+    private void onModsNextPage() {
+        int totalPages = Math.max(1, (int) Math.ceil(filteredModEntries.size() / (double) MODS_PAGE_SIZE));
+        if (modsPageIndex < totalPages - 1) {
+            modsPageIndex++;
+            refreshModEntriesView();
+        }
     }
 
     @FXML
@@ -1232,10 +2144,22 @@ public class LauncherController {
             return;
         }
 
-        LauncherStorage.LauncherConfig launchConfig = captureCurrentConfig();
-        LauncherStorage.saveConfig(launchConfig);
-        persistedConfig = launchConfig;
-        refreshSaveState();
+        FabricMinecraftService.JavaRuntimeInfo javaInfo = FabricMinecraftService.detectJavaRuntime();
+        if (!javaInfo.available() || javaInfo.majorVersion() < FabricMinecraftService.REQUIRED_JAVA_MAJOR) {
+            showView(ViewMode.SETTINGS, true);
+            applySettingsSection(SettingsSection.SYSTEM, false);
+            shakePendingActionButtons();
+            showInfo(
+                    "No se puede iniciar porque falta Java compatible.\n\n" +
+                            "Requerido: Java " + FabricMinecraftService.REQUIRED_JAVA_MAJOR + "+.\n" +
+                            "Detectado: " + (javaInfo.versionString().isBlank() ? "no detectado" : javaInfo.versionString())
+            );
+            refreshJavaRuntimeStatusAsync();
+            return;
+        }
+
+        saveAllSettings();
+        final LauncherStorage.LauncherConfig launchConfig = persistedConfig;
 
         lblStatus.setText("Preparando lanzamiento...");
         updateInstallPresence("Preparando lanzamiento...");
@@ -1260,6 +2184,9 @@ public class LauncherController {
     }
 
     private void showView(ViewMode mode, boolean animate) {
+        if (mode != ViewMode.SETTINGS && !allowSettingsViewExit()) {
+            return;
+        }
         viewMode = mode;
         boolean showHome = mode == ViewMode.HOME;
 
@@ -1267,11 +2194,14 @@ public class LauncherController {
             centerContent.setManaged(showHome);
             centerContent.setVisible(showHome);
         }
-        if (settingsScroll != null) {
-            settingsScroll.setManaged(!showHome);
-            settingsScroll.setVisible(!showHome);
+        Node settingsNode = settingsView != null ? settingsView : settingsScroll;
+        if (settingsNode != null) {
+            settingsNode.setManaged(!showHome);
+            settingsNode.setVisible(!showHome);
             if (!showHome) {
-                settingsScroll.setVvalue(0.0);
+                if (settingsScroll != null) {
+                    settingsScroll.setVvalue(0.0);
+                }
             }
         }
 
@@ -1288,7 +2218,7 @@ public class LauncherController {
         }
 
         if (animate) {
-            Node target = showHome ? centerContent : settingsScroll;
+            Node target = showHome ? centerContent : settingsNode;
             if (target != null) {
                 target.setOpacity(0.0);
                 target.setTranslateY(10.0);
@@ -1298,13 +2228,25 @@ public class LauncherController {
                 );
                 transition.play();
             }
-        } else if (centerContent != null && settingsScroll != null) {
+        } else if (centerContent != null && settingsNode != null) {
             centerContent.setOpacity(showHome ? 1.0 : 0.0);
-            settingsScroll.setOpacity(showHome ? 0.0 : 1.0);
+            settingsNode.setOpacity(showHome ? 0.0 : 1.0);
             centerContent.setTranslateY(0.0);
-            settingsScroll.setTranslateY(0.0);
+            settingsNode.setTranslateY(0.0);
         }
         refreshLauncherRuntimeStateUi();
+    }
+
+    private boolean allowSettingsViewExit() {
+        if (viewMode != ViewMode.SETTINGS) {
+            return true;
+        }
+        if (!hasPendingSettingsChanges()) {
+            return true;
+        }
+        shakePendingActionButtons();
+        showSettingsStatus("Guarda o descarta cambios antes de salir.");
+        return false;
     }
 
     private static void applyNavState(Button button, boolean active) {
@@ -1357,8 +2299,9 @@ public class LauncherController {
             centerContent.setOpacity(active ? 0.42 : 1.0);
             centerContent.setEffect(active ? loginBlurHeavy : null);
         }
-        if (settingsScroll != null) {
-            settingsScroll.setEffect(active ? loginBlurLight : null);
+        Node settingsNode = settingsView != null ? settingsView : settingsScroll;
+        if (settingsNode != null) {
+            settingsNode.setEffect(active ? loginBlurLight : null);
         }
         if (titleBar != null) {
             titleBar.setOpacity(active ? 0.76 : 1.0);

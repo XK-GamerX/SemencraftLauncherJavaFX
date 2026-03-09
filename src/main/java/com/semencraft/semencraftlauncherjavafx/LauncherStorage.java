@@ -261,7 +261,7 @@ final class LauncherStorage {
                 boolean closeLauncherOnStart,
                 boolean discordRpcEnabled
         ) {
-            this.modpack = (modpack == null || modpack.isBlank()) ? "Normal" : modpack;
+            this.modpack = normalizeTemplate(modpack);
             this.ramGb = Math.max(2, Math.min(16, ramGb));
             this.launchMode = (launchMode == null || launchMode.isBlank()) ? "Ventana" : launchMode;
             this.windowResolution = (windowResolution == null || windowResolution.isBlank()) ? "1280x720" : windowResolution;
@@ -272,6 +272,20 @@ final class LauncherStorage {
 
         static LauncherConfig defaults() {
             return new LauncherConfig("Normal", 6, "Ventana", "1280x720", false, false, true);
+        }
+
+        private static String normalizeTemplate(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return "Normal";
+            }
+            String lower = raw.trim().toLowerCase();
+            if (lower.equals("optimizado") || lower.equals("optimizada")) {
+                return "Optimizada";
+            }
+            if (lower.equals("custom")) {
+                return "Custom";
+            }
+            return "Normal";
         }
 
         String modpack() {

@@ -441,6 +441,52 @@
     -fx-alignment: top-left;
 }
 
+.settings-top-tabs {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(12, 18, 28, 0.92) 0%,
+            rgba(9, 14, 22, 0.86) 100%
+    );
+    -fx-border-color: transparent transparent rgba(141, 165, 210, 0.35) transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-tab-btn {
+    -fx-background-color: rgba(148, 172, 218, 0.18);
+    -fx-text-fill: rgba(222, 233, 251, 0.95);
+    -fx-font-weight: bold;
+    -fx-padding: 8 14 8 14;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(157, 183, 232, 0.42);
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-cursor: hand;
+}
+
+.settings-tab-btn:hover {
+    -fx-background-color: rgba(135, 168, 230, 0.34);
+}
+
+.settings-tab-btn-active {
+    -fx-background-color: linear-gradient(to bottom, rgba(126, 160, 231, 0.92), rgba(95, 124, 194, 0.94));
+    -fx-text-fill: white;
+    -fx-border-color: rgba(211, 226, 255, 0.85);
+}
+
+.java-status-label {
+    -fx-text-fill: rgba(198, 217, 248, 0.96);
+    -fx-font-size: 0.90em;
+    -fx-font-weight: bold;
+}
+
+.java-status-ok {
+    -fx-text-fill: #a9f3bb;
+}
+
+.java-status-bad {
+    -fx-text-fill: #ffaaaa;
+}
+
 .settings-title {
     -fx-text-fill: rgba(234, 242, 255, 0.98);
     -fx-font-size: 1.66em;
@@ -570,6 +616,134 @@
     -fx-font-size: 0.88em;
 }
 
+.settings-action-bar {
+    -fx-background-color: linear-gradient(
+            to top,
+            rgba(8, 12, 20, 0.96) 0%,
+            rgba(10, 15, 23, 0.90) 100%
+    );
+    -fx-border-color: rgba(148, 172, 220, 0.42) transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.settings-discard-btn {
+    -fx-background-color: rgba(129, 150, 189, 0.24);
+    -fx-border-color: rgba(167, 188, 224, 0.52);
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-text-fill: rgba(230, 240, 255, 0.96);
+    -fx-font-weight: bold;
+    -fx-padding: 10 18 10 18;
+    -fx-cursor: hand;
+}
+
+.settings-discard-btn:hover {
+    -fx-background-color: rgba(151, 174, 218, 0.36);
+}
+
+.settings-discard-btn:pressed {
+    -fx-background-color: rgba(93, 111, 147, 0.64);
+}
+
+.settings-discard-btn:disabled {
+    -fx-background-color: rgba(60, 74, 96, 0.55);
+    -fx-text-fill: rgba(195, 208, 233, 0.54);
+    -fx-border-color: rgba(120, 142, 182, 0.30);
+}
+
+.mod-filter-combo {
+    -fx-pref-width: 180px;
+}
+
+.mod-filter-label {
+    -fx-text-fill: rgba(176, 196, 232, 0.94);
+    -fx-font-size: 0.86em;
+    -fx-font-weight: bold;
+}
+
+.mod-page-btn {
+    -fx-background-color: rgba(122, 152, 210, 0.32);
+    -fx-text-fill: rgba(232, 241, 255, 0.96);
+    -fx-border-color: rgba(156, 181, 227, 0.56);
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 7 12 7 12;
+    -fx-cursor: hand;
+}
+
+.mod-page-btn:hover {
+    -fx-background-color: rgba(142, 173, 232, 0.48);
+}
+
+.mod-page-btn:disabled {
+    -fx-background-color: rgba(68, 83, 110, 0.66);
+    -fx-text-fill: rgba(194, 207, 229, 0.58);
+    -fx-border-color: rgba(110, 127, 157, 0.42);
+}
+
+.mods-list {
+    -fx-background-color: rgba(11, 17, 27, 0.66);
+    -fx-border-color: rgba(136, 162, 209, 0.34);
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-padding: 10;
+}
+
+.mod-item-row {
+    -fx-background-color: rgba(121, 152, 208, 0.12);
+    -fx-border-color: rgba(155, 180, 224, 0.30);
+    -fx-border-width: 1;
+    -fx-border-radius: 9;
+    -fx-background-radius: 9;
+    -fx-padding: 8 10 8 10;
+}
+
+.mod-item-name {
+    -fx-text-fill: rgba(232, 242, 255, 0.98);
+    -fx-font-size: 0.96em;
+    -fx-font-weight: bold;
+}
+
+.mod-item-file {
+    -fx-text-fill: rgba(172, 189, 217, 0.94);
+    -fx-font-size: 0.82em;
+}
+
+.mod-item-section {
+    -fx-text-fill: rgba(146, 167, 205, 0.88);
+    -fx-font-size: 0.78em;
+}
+
+.mod-toggle-btn {
+    -fx-background-color: rgba(146, 171, 214, 0.24);
+    -fx-border-color: rgba(167, 191, 233, 0.54);
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-text-fill: rgba(234, 243, 255, 0.97);
+    -fx-font-weight: bold;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+}
+
+.mod-toggle-btn:selected {
+    -fx-background-color: linear-gradient(to bottom, #8dc0ff 0%, #6796de 100%);
+    -fx-border-color: rgba(214, 230, 255, 0.84);
+    -fx-text-fill: white;
+}
+
+.mod-toggle-btn:hover {
+    -fx-background-color: rgba(166, 192, 236, 0.40);
+}
+
+.combo-box-base:showing {
+    -fx-effect: dropshadow(gaussian, rgba(138, 174, 238, 0.44), 14, 0.20, 0, 0);
+    -fx-border-color: rgba(184, 209, 255, 0.90);
+}
+
 .login-root {
     -fx-background-color: rgba(0, 0, 0, 0.30);
 }
@@ -676,6 +850,36 @@
 .combo-box-popup .list-cell:filled:selected {
     -fx-background-color: rgba(112, 145, 209, 0.42);
     -fx-background-radius: 6;
+}
+
+.startup-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.97);
+}
+
+.startup-title {
+    -fx-text-fill: #f3f7ff;
+    -fx-font-size: 1.34em;
+    -fx-font-weight: bold;
+    -fx-text-alignment: center;
+    -fx-alignment: center;
+}
+
+.startup-progress-track {
+    -fx-background-color: rgba(188, 205, 239, 0.20);
+    -fx-background-radius: 999;
+    -fx-border-color: rgba(177, 199, 238, 0.38);
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+}
+
+.startup-progress-fill {
+    -fx-background-color: linear-gradient(to right, #89b5ff 0%, #5f88d4 100%);
+    -fx-background-radius: 999;
+}
+
+.startup-percent {
+    -fx-text-fill: rgba(196, 214, 248, 0.95);
+    -fx-font-size: 0.90em;
 }
 
 .hover-tip {

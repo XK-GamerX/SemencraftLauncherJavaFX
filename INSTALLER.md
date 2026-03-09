@@ -7,6 +7,7 @@
 - `packageLauncherZip`: builds a distributable zip from the app-image.
 - `scripts/build-msi.ps1`: one-command MSI build script with prerequisite checks.
 - MSI now includes `--win-shortcut-prompt` (asks user if desktop shortcut should be created).
+- Launcher modpacks now update from GitHub at runtime (no MSI rebuild needed for each mod/resourcepack change).
 
 ## Commands
 
@@ -98,6 +99,16 @@ PNG fallbacks are also supported:
 - MSI can prompt for desktop shortcut creation.
 - `jpackage` MSI does **not** provide a built-in checkbox to "open app after install".
   - To support "open at finish", we would need a custom WiX flow (non-default jpackage resources).
+
+## Modpack updates without rebuilding MSI
+
+- The installed launcher synchronizes modpacks from:
+  - `https://github.com/XK-GamerX/SemencraftModpacks`
+- This means you can update mods/resourcepacks in the repo and users receive changes automatically.
+- Local cache path used by launcher:
+  - `%APPDATA%\\.semencraft\\launcher\\modpacks-github-cache\\SemencraftModpacks`
+- Practical recommendation:
+  - First launch should have internet available to warm the cache.
 
 ## Credits
 

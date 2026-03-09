@@ -67,4 +67,6 @@ Write-Host ""
 Write-Host "MSI generado:"
 Write-Host $msi.FullName
 Write-Host ""
+Write-Host "Nota: Los modpacks se actualizan desde GitHub en runtime (no hace falta rebuild por cada cambio de mod)."
+Write-Host ""
 Write-Host "Credito del instalador: Khel Palacios"

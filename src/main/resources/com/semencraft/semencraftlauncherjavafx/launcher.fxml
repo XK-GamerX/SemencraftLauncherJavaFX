@@ -132,61 +132,139 @@
                         <Region fx:id="statusGap" prefHeight="14"/>
                     </VBox>
 
-                    <ScrollPane fx:id="settingsScroll"
-                                styleClass="settings-scroll"
-                                fitToWidth="true"
-                                hbarPolicy="NEVER"
-                                vbarPolicy="AS_NEEDED"
-                                visible="false"
-                                managed="false"
-                                maxWidth="Infinity"
-                                maxHeight="Infinity">
-                        <content>
-                            <VBox fx:id="settingsRoot" styleClass="settings-root" spacing="16">
-                                <padding><Insets top="24" right="34" bottom="24" left="34"/></padding>
+                    <VBox fx:id="settingsView"
+                          visible="false"
+                          managed="false"
+                          maxWidth="Infinity"
+                          maxHeight="Infinity">
+                        <HBox styleClass="settings-top-tabs" alignment="CENTER_LEFT" spacing="8">
+                            <padding><Insets top="14" right="20" bottom="10" left="20"/></padding>
+                            <Button fx:id="btnSettingsTabGeneral"
+                                    text="General"
+                                    styleClass="settings-tab-btn"
+                                    onAction="#onSettingsTabGeneral"/>
+                            <Button fx:id="btnSettingsTabModpacks"
+                                    text="Modpacks"
+                                    styleClass="settings-tab-btn"
+                                    onAction="#onSettingsTabModpacks"/>
+                            <Button fx:id="btnSettingsTabSystem"
+                                    text="Sistema"
+                                    styleClass="settings-tab-btn"
+                                    onAction="#onSettingsTabSystem"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="lblJavaRuntimeStatus" text="Java: verificando..." styleClass="java-status-label"/>
+                        </HBox>
 
-                                <Label text="Configuracion del Launcher (Fabric)" styleClass="settings-title"/>
-                                <Label text="Opciones esenciales del launcher para SemenCraft."
-                                       styleClass="settings-subtitle"
-                                       wrapText="true"/>
+                        <StackPane VBox.vgrow="ALWAYS">
+                            <ScrollPane fx:id="settingsScroll"
+                                        styleClass="settings-scroll"
+                                        fitToWidth="true"
+                                        hbarPolicy="NEVER"
+                                        vbarPolicy="AS_NEEDED"
+                                        maxWidth="Infinity"
+                                        maxHeight="Infinity">
+                                <content>
+                                    <VBox fx:id="settingsRoot" styleClass="settings-root" spacing="16">
+                                        <padding><Insets top="14" right="30" bottom="112" left="30"/></padding>
 
-                                <VBox styleClass="settings-section" spacing="10">
-                                    <Label text="Modpack" styleClass="settings-section-title"/>
-                                    <Label text="Elige entre experiencia completa o un perfil mas ligero." styleClass="settings-hint"/>
-                                    <ComboBox fx:id="cmbModpack" styleClass="settings-combo" maxWidth="Infinity"/>
-                                </VBox>
+                                        <Label text="Configuracion del Launcher (Fabric)" styleClass="settings-title"/>
+                                        <Label text="Gestiona tu perfil de juego, modpacks y requisitos del sistema."
+                                               styleClass="settings-subtitle"
+                                               wrapText="true"/>
 
-                                <VBox styleClass="settings-section" spacing="10">
-                                    <Label text="Video y rendimiento" styleClass="settings-section-title"/>
-                                    <HBox spacing="10" alignment="CENTER_LEFT">
-                                        <Label text="RAM asignada" styleClass="settings-field-label"/>
-                                        <Region HBox.hgrow="ALWAYS"/>
-                                        <Label fx:id="lblRamValue" text="6 GB" styleClass="settings-value"/>
-                                    </HBox>
-                                    <Slider fx:id="sliderRam" min="2" max="16" value="6" majorTickUnit="2" minorTickCount="1" blockIncrement="1"/>
+                                        <VBox fx:id="paneSettingsGeneral" styleClass="settings-section" spacing="10">
+                                            <Label text="Lanzamiento y rendimiento" styleClass="settings-section-title"/>
+                                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                                <Label text="RAM asignada" styleClass="settings-field-label"/>
+                                                <Region HBox.hgrow="ALWAYS"/>
+                                                <Label fx:id="lblRamValue" text="6 GB" styleClass="settings-value"/>
+                                            </HBox>
+                                            <Slider fx:id="sliderRam" min="2" max="16" value="6" majorTickUnit="2" minorTickCount="1" blockIncrement="1"/>
 
-                                    <Label text="Modo de ventana" styleClass="settings-field-label"/>
-                                    <ComboBox fx:id="cmbLaunchMode" styleClass="settings-combo" maxWidth="Infinity"/>
+                                            <Label text="Modo de ventana" styleClass="settings-field-label"/>
+                                            <ComboBox fx:id="cmbLaunchMode" styleClass="settings-combo" maxWidth="Infinity"/>
 
-                                    <Label text="Resolucion (solo ventana)" styleClass="settings-field-label"/>
-                                    <TextField fx:id="txtResolution"
-                                               styleClass="settings-field"
-                                               promptText="1280x720"/>
+                                            <Label text="Resolucion (solo ventana)" styleClass="settings-field-label"/>
+                                            <TextField fx:id="txtResolution"
+                                                       styleClass="settings-field"
+                                                       promptText="1280x720"/>
 
-                                    <CheckBox fx:id="chkBorderlessWindow"
-                                              text="Usar ventana sin bordes (borderless)"
-                                              styleClass="settings-check"/>
-                                    <CheckBox fx:id="chkCloseLauncherOnStart" text="Cerrar launcher al iniciar el juego" styleClass="settings-check"/>
-                                    <CheckBox fx:id="chkDiscordRpc" text="Activar Discord RPC" styleClass="settings-check"/>
-                                </VBox>
+                                            <CheckBox fx:id="chkBorderlessWindow"
+                                                      text="Usar ventana sin bordes (borderless)"
+                                                      styleClass="settings-check"/>
+                                            <CheckBox fx:id="chkCloseLauncherOnStart"
+                                                      text="Cerrar launcher al iniciar el juego"
+                                                      styleClass="settings-check"/>
+                                            <CheckBox fx:id="chkDiscordRpc"
+                                                      text="Activar Discord RPC"
+                                                      styleClass="settings-check"/>
+                                        </VBox>
 
-                                <HBox spacing="10" alignment="CENTER_LEFT">
-                                    <Button fx:id="btnSaveSettings" text="Guardar configuracion" styleClass="settings-save-btn" onAction="#onSaveSettings"/>
-                                    <Label fx:id="lblSettingsStatus" text="" styleClass="settings-status"/>
-                                </HBox>
-                            </VBox>
-                        </content>
-                    </ScrollPane>
+                                        <VBox fx:id="paneSettingsModpacks" styleClass="settings-section" spacing="12">
+                                            <Label text="Plantilla de modpack" styleClass="settings-section-title"/>
+                                            <Label text="Normal: todo activado. Optimizada: desactiva secciones pesadas y aplica parche de opciones."
+                                                   styleClass="settings-hint"
+                                                   wrapText="true"/>
+                                            <ComboBox fx:id="cmbModpack" styleClass="settings-combo" maxWidth="Infinity"/>
+
+                                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                                <TextField fx:id="txtModSearch"
+                                                           promptText="Buscar mod por nombre..."
+                                                           styleClass="settings-field"
+                                                           HBox.hgrow="ALWAYS"/>
+                                            </HBox>
+
+                                            <HBox spacing="8" alignment="CENTER_LEFT">
+                                                <Label text="Filtrar:" styleClass="settings-field-label"/>
+                                                <Label text="Tipo" styleClass="mod-filter-label"/>
+                                                <ComboBox fx:id="cmbModsTypeFilter" styleClass="settings-combo mod-filter-combo"/>
+                                                <Label text="Seccion" styleClass="mod-filter-label"/>
+                                                <ComboBox fx:id="cmbModsSectionFilter" styleClass="settings-combo mod-filter-combo"/>
+                                            </HBox>
+
+                                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                                <Label fx:id="lblModsCount" text="0 elementos" styleClass="settings-hint"/>
+                                                <Region HBox.hgrow="ALWAYS"/>
+                                                <Button fx:id="btnModsPrevPage" text="Anterior" styleClass="mod-page-btn" onAction="#onModsPrevPage"/>
+                                                <Label fx:id="lblModsPage" text="Pagina 1/1" styleClass="settings-value"/>
+                                                <Button fx:id="btnModsNextPage" text="Siguiente" styleClass="mod-page-btn" onAction="#onModsNextPage"/>
+                                            </HBox>
+
+                                            <VBox fx:id="modsListContainer" styleClass="mods-list" spacing="8"/>
+                                        </VBox>
+
+                                        <VBox fx:id="paneSettingsSystem" styleClass="settings-section" spacing="8">
+                                            <Label text="Estado del sistema" styleClass="settings-section-title"/>
+                                            <Label fx:id="lblSystemJavaDetails"
+                                                   text="Java: verificando version requerida..."
+                                                   styleClass="settings-hint"
+                                                   wrapText="true"/>
+                                            <Label text="Para Minecraft 1.21.8 se recomienda Java 21 o superior."
+                                                   styleClass="settings-hint"
+                                                   wrapText="true"/>
+                                        </VBox>
+                                    </VBox>
+                                </content>
+                            </ScrollPane>
+
+                            <HBox fx:id="settingsActionBar"
+                                  styleClass="settings-action-bar"
+                                  spacing="10"
+                                  alignment="CENTER_LEFT"
+                                  StackPane.alignment="BOTTOM_CENTER">
+                                <padding><Insets top="12" right="24" bottom="12" left="24"/></padding>
+                                <Button fx:id="btnSaveSettings"
+                                        text="Guardar cambios"
+                                        styleClass="settings-save-btn"
+                                        onAction="#onSaveSettings"/>
+                                <Button fx:id="btnDiscardSettings"
+                                        text="Descartar"
+                                        styleClass="settings-discard-btn"
+                                        onAction="#onDiscardSettings"/>
+                                <Label fx:id="lblSettingsStatus" text="" styleClass="settings-status"/>
+                            </HBox>
+                        </StackPane>
+                    </VBox>
 
                     <StackPane fx:id="loadingOverlay" visible="false" opacity="0">
                         <Region styleClass="loading-backdrop" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
@@ -250,6 +328,20 @@
                     <fx:include fx:id="login" source="login.fxml"/>
                 </StackPane>
             </HBox>
+
+            <StackPane fx:id="startupOverlay" styleClass="startup-overlay" maxWidth="Infinity" maxHeight="Infinity">
+                <VBox alignment="CENTER" spacing="12" maxWidth="Infinity" maxHeight="Infinity">
+                    <Label fx:id="lblStartupStatus" text="Cargando Launcher" styleClass="startup-title"/>
+                    <StackPane fx:id="startupProgressTrack" styleClass="startup-progress-track" prefWidth="260" prefHeight="10">
+                        <Region fx:id="startupProgressFill"
+                                styleClass="startup-progress-fill"
+                                prefHeight="10"
+                                prefWidth="0"
+                                StackPane.alignment="CENTER_LEFT"/>
+                    </StackPane>
+                    <Label fx:id="lblStartupPercent" text="0%" styleClass="startup-percent"/>
+                </VBox>
+            </StackPane>
         </StackPane>
     </center>
 

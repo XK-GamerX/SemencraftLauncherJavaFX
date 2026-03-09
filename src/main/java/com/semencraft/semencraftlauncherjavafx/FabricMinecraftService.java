@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -38,6 +39,7 @@ import java.util.zip.ZipInputStream;
 final class FabricMinecraftService {
 
     static final String TARGET_MINECRAFT_VERSION = "1.21.8";
+    static final int REQUIRED_JAVA_MAJOR = 21;
 
     private static final String USER_AGENT = "SemencraftLauncher/1.0";
     private static final String VERSION_MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -48,6 +50,7 @@ final class FabricMinecraftService {
     private static final long DOWNLOAD_RETRY_BASE_DELAY_MS = 1200L;
     private static final long PROCESS_STARTUP_CHECK_MS = 8000L;
     private static final int LAUNCH_LOG_TAIL_LINES = 40;
+    private static final Pattern JAVA_VERSION_PATTERN = Pattern.compile("\"([^\"]+)\"");
 
     private static final double CORE_START = 0.10;
     private static final double CORE_END = 0.56;
@@ -69,12 +72,25 @@ final class FabricMinecraftService {
     record LaunchResult(Process process, String profileId, String loaderVersion) {
     }
 
+    record JavaRuntimeInfo(boolean available, int majorVersion, String versionString, String javaBinaryPath, String details) {
+    }
+
     private record DownloadItem(String label, String url, Path target, String sha1, long size) {
     }
 
     LaunchResult installAndLaunch(String username, LauncherStorage.LauncherConfig config, ProgressListener progress) throws Exception {
         Objects.requireNonNull(username, "username");
         Objects.requireNonNull(config, "config");
+
+        JavaRuntimeInfo javaRuntime = detectJavaRuntime();
+        if (!javaRuntime.available()) {
+            throw new IOException("No se detecto Java. Instala Java " + REQUIRED_JAVA_MAJOR + " o superior.");
+        }
+        if (javaRuntime.majorVersion() > 0 && javaRuntime.majorVersion() < REQUIRED_JAVA_MAJOR) {
+            throw new IOException(
+                    "Java detectado: " + javaRuntime.versionString() + ". Se requiere Java " + REQUIRED_JAVA_MAJOR + " o superior."
+            );
+        }
 
         LauncherStorage.ensureEnvironment();
         Path gameDir = LauncherStorage.minecraftDirectory();
@@ -95,6 +111,17 @@ final class FabricMinecraftService {
         Files.createDirectories(assetObjectsDir);
         Files.createDirectories(logConfigsDir);
         Files.createDirectories(launcherDir);
+
+        report(progress, "Sincronizando modpack Semencraft...", 0.04, 0.0);
+        ModpackManager modpackManager = new ModpackManager();
+        ModpackManager.Catalog catalog = modpackManager.loadCatalog();
+        ModpackManager.Selection selection = resolveSelectionForLaunch(modpackManager, catalog, config);
+        ModpackManager.SyncResult syncResult = modpackManager.synchronizeForLaunch(catalog, selection, gameDir);
+        String syncStatus = "Modpack sincronizado";
+        if (syncResult.removedMods() > 0 || syncResult.removedResourcepacks() > 0) {
+            syncStatus += " (limpieza: " + (syncResult.removedMods() + syncResult.removedResourcepacks()) + " archivos)";
+        }
+        report(progress, syncStatus + "...", 0.05, 1.0);
 
         report(progress, "Consultando versiones de Minecraft...", 0.05, 0.0);
         JsonObject versionManifest = fetchJsonObject(VERSION_MANIFEST_URL);
@@ -1060,6 +1087,109 @@ final class FabricMinecraftService {
             result = result.replace("${" + token.getKey() + "}", token.getValue());
         }
         return result;
+    }
+
+    static JavaRuntimeInfo detectJavaRuntime() {
+        String os = currentOsName();
+        String javaExecutable = "windows".equals(os) ? "java.exe" : "java";
+        Path fromHome = Path.of(System.getProperty("java.home", "."), "bin", javaExecutable).toAbsolutePath().normalize();
+
+        List<Path> candidates = new ArrayList<>();
+        candidates.add(fromHome);
+        candidates.add(Path.of(javaExecutable));
+
+        Set<String> seen = new LinkedHashSet<>();
+        for (Path candidate : candidates) {
+            String key = candidate.toString().toLowerCase(Locale.ROOT);
+            if (!seen.add(key)) {
+                continue;
+            }
+            JavaRuntimeInfo info = probeJavaCandidate(candidate);
+            if (info.available()) {
+                return info;
+            }
+        }
+        return new JavaRuntimeInfo(false, -1, "", "", "No se encontro Java en java.home ni en PATH.");
+    }
+
+    private static JavaRuntimeInfo probeJavaCandidate(Path candidate) {
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(candidate.toString(), "-version");
+            pb.redirectErrorStream(true);
+            process = pb.start();
+            boolean finished = process.waitFor(4, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return new JavaRuntimeInfo(false, -1, "", candidate.toString(), "Timeout al consultar java -version.");
+            }
+            String output;
+            try (InputStream in = process.getInputStream()) {
+                output = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            if (output == null) {
+                output = "";
+            }
+            int exit = process.exitValue();
+            String version = extractJavaVersion(output);
+            int major = parseJavaMajor(version);
+            boolean available = exit == 0 || (version != null && !version.isBlank());
+            return new JavaRuntimeInfo(available, major, version == null ? "" : version, candidate.toString(), output.trim());
+        } catch (Exception ex) {
+            return new JavaRuntimeInfo(false, -1, "", candidate.toString(), ex.getMessage() == null ? ex.toString() : ex.getMessage());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private static String extractJavaVersion(String output) {
+        if (output == null || output.isBlank()) {
+            return "";
+        }
+        Matcher matcher = JAVA_VERSION_PATTERN.matcher(output);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return output.lines().findFirst().orElse("").trim();
+    }
+
+    private static int parseJavaMajor(String version) {
+        if (version == null || version.isBlank()) {
+            return -1;
+        }
+        String raw = version.trim();
+        try {
+            if (raw.startsWith("1.")) {
+                String[] parts = raw.split("\\.");
+                return parts.length > 1 ? Integer.parseInt(parts[1]) : -1;
+            }
+            int idx = raw.indexOf('.');
+            String majorPart = idx > 0 ? raw.substring(0, idx) : raw;
+            idx = majorPart.indexOf('-');
+            if (idx > 0) {
+                majorPart = majorPart.substring(0, idx);
+            }
+            return Integer.parseInt(majorPart);
+        } catch (Exception ignored) {
+            return -1;
+        }
+    }
+
+    private static ModpackManager.Selection resolveSelectionForLaunch(
+            ModpackManager manager,
+            ModpackManager.Catalog catalog,
+            LauncherStorage.LauncherConfig config
+    ) {
+        String template = ModpackManager.normalizeTemplate(config.modpack());
+        if (ModpackManager.TEMPLATE_CUSTOM.equals(template)) {
+            ModpackManager.Selection saved = manager.loadSavedCustomSelection(catalog);
+            if (saved != null) {
+                return manager.normalizeSelection(catalog, saved);
+            }
+        }
+        return manager.defaultSelectionForTemplate(catalog, template);
     }
 
     private static Path resolveJavaBinary() {

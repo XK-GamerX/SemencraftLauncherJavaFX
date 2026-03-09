@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <defs>
+    <linearGradient gradientUnits="userSpaceOnUse" x1="216.677" y1="97.031" x2="216.677" y2="136.001" id="gradient-1" gradientTransform="matrix(2.84555, 0, 0, 2.84555, -399.818551, 17.07598)">
+      <stop offset="0" style="stop-color: rgb(255, 255, 255)"/>
+      <stop offset="1" style="stop-color: rgb(56.687% 56.687% 56.687%)"/>
+    </linearGradient>
+  </defs>
+  <g style="" transform="matrix(0.914844, 0, 0, 0.914844, 6.781, 15.959646)">
+    <path d="M 138.485 98.573 L 192.29 110.264 L 195.529 137.489 L 142.197 127.717 L 144.76 156.838 L 114.249 152.378 L 117.6 183.902 L 86.915 179.913 L 93.55 245.132 C 92.524 245.132 127.017 247.431 127.017 247.431 L 130.249 313.395 L 101.914 312.358 L 93.573 245.129 L 59.929 243.469 L 53.332 175.825 L 86.913 179.901 L 80.066 116.692 L 141.65 127.195 L 138.485 98.573 Z" opacity="1.00" stroke="#ffffff" stroke-width="0.25" style="stroke-width: 0.25; paint-order: fill; fill: rgb(255, 255, 255); transform-origin: 252.633px 254.241px;"/>
+    <path d="M 195.617 138.003 L 244.256 146.552 L 247.116 164.488 L 219.105 169.317 L 199.523 166.112 L 195.617 138.003 Z" opacity="1.00" stroke="#ffffff" stroke-width="0.25" style="stroke-width: 0.25; paint-order: fill; fill: url(&quot;#gradient-1&quot;); transform-origin: 252.633px 254.241px;"/>
+    <path d="M 138.573 189.631 L 266.483 167.453 L 404.604 188.088 L 404.966 372.922 L 262.594 388.993 L 137.351 373.074 L 138.573 189.631 Z M 294.43 328.783 L 323.952 328.308 L 323.984 246.635 L 294.968 245.583 L 294.43 328.783 Z M 399.294 298.015 L 375.863 282.74 L 352.841 298.078 L 399.294 298.015 Z" opacity="1.00" stroke="#ffffff" stroke-width="0.25" style="stroke-width: 0.25; paint-order: fill; fill: rgb(255, 255, 255); transform-origin: 252.633px 254.241px;"/>
+    <path d="M 411.515 369.538 C 411.388 369.362 411.419 238.326 411.419 238.326 L 451.934 282.418 L 420.137 369.74 L 411.515 369.538 Z" opacity="1.00" stroke="#ffffff" stroke-width="0.25" style="stroke-width: 0.25; paint-order: fill; fill: rgb(255, 255, 255); transform-origin: 252.633px 254.241px;"/>
+    <path d="M 349.039 386.541 L 405.232 380.33 L 404.074 405.706 L 376.569 409.909 L 349.795 406.221 L 349.039 386.541 Z" opacity="1.00" stroke="#ffffff" stroke-width="0.25" style="stroke-width: 0.25; paint-order: fill; fill: rgb(255, 255, 255);"/>
+  </g>
+</svg>
