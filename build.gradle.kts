@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.semencraft.semencraftlauncherjavafx"
-version = "1.0-SNAPSHOT"
+version = "1.0.3"
 
 repositories {
     mavenCentral()

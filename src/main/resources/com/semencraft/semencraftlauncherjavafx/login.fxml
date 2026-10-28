@@ -16,14 +16,14 @@
     <ScrollPane fx:id="loginScroll"
                 styleClass="login-scroll"
                 fitToWidth="true"
-                fitToHeight="true"
+                fitToHeight="false"
                 hbarPolicy="NEVER"
-                vbarPolicy="NEVER"
+                vbarPolicy="AS_NEEDED"
                 maxWidth="Infinity"
                 maxHeight="Infinity">
         <content>
             <VBox fx:id="loginOuter"
-                  alignment="CENTER"
+                  alignment="TOP_CENTER"
                   maxWidth="Infinity"
                   maxHeight="Infinity"
                   fillWidth="true">
@@ -31,49 +31,182 @@
                 <VBox fx:id="loginCard"
                       styleClass="login-card"
                       alignment="CENTER"
-                      minWidth="320"
+                      minWidth="360"
                       spacing="0">
 
                     <HBox alignment="CENTER">
-                        <VBox.margin><Insets top="6" bottom="10"/></VBox.margin>
+                        <VBox.margin><Insets top="6" bottom="12"/></VBox.margin>
                         <ImageView fx:id="imgLoginLogo" preserveRatio="true" smooth="true"/>
                     </HBox>
 
-                    <Label text="Iniciar sesion en SemenCraft" styleClass="login-subtitle">
-                        <VBox.margin><Insets bottom="32"/></VBox.margin>
-                    </Label>
+                    <VBox fx:id="loginPane"
+                          alignment="TOP_LEFT"
+                          maxWidth="Infinity"
+                          spacing="0">
+                        <Label text="Iniciar sesion en SemenCraft" styleClass="login-subtitle">
+                            <VBox.margin><Insets bottom="30"/></VBox.margin>
+                        </Label>
 
-                    <Label text="USUARIO" styleClass="login-field-lbl">
-                        <VBox.margin><Insets left="2"/></VBox.margin>
-                    </Label>
-                    <TextField fx:id="txtUsername"
-                               styleClass="login-underline-field"
-                               promptText="Tu nombre de usuario"
-                               maxWidth="Infinity">
-                        <VBox.margin><Insets bottom="22"/></VBox.margin>
-                    </TextField>
+                        <Label text="USUARIO DE MINECRAFT" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <TextField fx:id="txtLoginUsername"
+                                   styleClass="login-underline-field"
+                                   promptText="Tu usuario"
+                                   maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="22"/></VBox.margin>
+                        </TextField>
 
-                    <Label text="CONTRASENA" styleClass="login-field-lbl">
-                        <VBox.margin><Insets left="2"/></VBox.margin>
-                    </Label>
-                    <TextField fx:id="txtPassword"
-                               styleClass="login-underline-field"
-                               promptText="********"
-                               maxWidth="Infinity">
-                        <VBox.margin><Insets bottom="14"/></VBox.margin>
-                    </TextField>
+                        <Label text="CONTRASENA" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <PasswordField fx:id="txtLoginPassword"
+                                       styleClass="login-underline-field"
+                                       promptText="********"
+                                       maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="14"/></VBox.margin>
+                        </PasswordField>
 
-                    <Label fx:id="lblError" text="" styleClass="login-error-lbl" maxWidth="Infinity">
-                        <VBox.margin><Insets bottom="18"/></VBox.margin>
-                    </Label>
+                        <Label fx:id="lblLoginError" text="" styleClass="login-error-lbl" maxWidth="Infinity" wrapText="true">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </Label>
 
-                    <Button fx:id="btnLogin"
-                            text="ENTRAR"
-                            styleClass="login-green-btn"
-                            maxWidth="Infinity"
-                            onAction="#onLogin">
-                        <VBox.margin><Insets bottom="4"/></VBox.margin>
-                    </Button>
+                        <Button fx:id="btnLogin"
+                                text="ENTRAR"
+                                styleClass="login-green-btn"
+                                maxWidth="Infinity"
+                                onAction="#onLogin">
+                            <VBox.margin><Insets bottom="14"/></VBox.margin>
+                        </Button>
+
+                        <Hyperlink fx:id="linkShowRegister"
+                                   text="No tienes cuenta aun? Registrate aqui"
+                                   styleClass="login-switch-link"
+                                   onAction="#onShowRegister"/>
+                    </VBox>
+
+                    <VBox fx:id="registerPane"
+                          alignment="TOP_LEFT"
+                          maxWidth="Infinity"
+                          spacing="0"
+                          visible="false"
+                          managed="false">
+                        <Label text="Crear cuenta para SemenCraft" styleClass="login-subtitle">
+                            <VBox.margin><Insets bottom="26"/></VBox.margin>
+                        </Label>
+
+                        <Label text="NOMBRE DE MINECRAFT" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <TextField fx:id="txtRegisterMinecraftUser"
+                                   styleClass="login-underline-field"
+                                   promptText="Solo letras, numeros y _"
+                                   maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </TextField>
+
+                        <Label text="CONTRASENA" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <PasswordField fx:id="txtRegisterPassword"
+                                       styleClass="login-underline-field"
+                                       promptText="Elige una contrasena"
+                                       maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </PasswordField>
+
+                        <Label text="REPETIR CONTRASENA" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <PasswordField fx:id="txtRegisterPasswordRepeat"
+                                       styleClass="login-underline-field"
+                                       promptText="Repite la contrasena"
+                                       maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </PasswordField>
+
+                        <Label text="USUARIO DE DISCORD" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <TextField fx:id="txtRegisterDiscordUser"
+                                   styleClass="login-underline-field"
+                                   promptText="Tu usuario exacto de Discord"
+                                   maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="10"/></VBox.margin>
+                        </TextField>
+
+                        <Label fx:id="lblRegisterHint"
+                               text="Debe coincidir con un usuario real del servidor de Discord."
+                               styleClass="login-note-lbl"
+                               wrapText="true">
+                            <VBox.margin><Insets bottom="12"/></VBox.margin>
+                        </Label>
+
+                        <Label fx:id="lblRegisterError" text="" styleClass="login-error-lbl" maxWidth="Infinity" wrapText="true">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </Label>
+
+                        <Button fx:id="btnRegister"
+                                text="CREAR CUENTA"
+                                styleClass="login-green-btn"
+                                maxWidth="Infinity"
+                                onAction="#onRegister">
+                            <VBox.margin><Insets bottom="14"/></VBox.margin>
+                        </Button>
+
+                        <Hyperlink fx:id="linkShowLogin"
+                                   text="Ya tengo cuenta. Volver al login"
+                                   styleClass="login-switch-link"
+                                   onAction="#onShowLogin"/>
+                    </VBox>
+
+                    <VBox fx:id="verificationPane"
+                          alignment="TOP_LEFT"
+                          maxWidth="Infinity"
+                          spacing="0"
+                          visible="false"
+                          managed="false">
+                        <Label text="Verifica tu cuenta de Discord" styleClass="login-subtitle">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </Label>
+
+                        <Label text="REVISA TUS MDS" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <Label fx:id="lblVerificationHint"
+                               text="Revisa tus MDs en Discord y coloca aqui tu codigo temporal."
+                               styleClass="login-note-lbl"
+                               wrapText="true">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </Label>
+
+                        <Label text="CODIGO DE ACCESO" styleClass="login-field-lbl">
+                            <VBox.margin><Insets left="2"/></VBox.margin>
+                        </Label>
+                        <TextField fx:id="txtVerificationCode"
+                                   styleClass="login-underline-field"
+                                   promptText="Codigo de 6 digitos"
+                                   maxWidth="Infinity">
+                            <VBox.margin><Insets bottom="12"/></VBox.margin>
+                        </TextField>
+
+                        <Label fx:id="lblVerificationError" text="" styleClass="login-error-lbl" maxWidth="Infinity" wrapText="true">
+                            <VBox.margin><Insets bottom="18"/></VBox.margin>
+                        </Label>
+
+                        <Button fx:id="btnVerifyCode"
+                                text="VALIDAR CODIGO"
+                                styleClass="login-green-btn"
+                                maxWidth="Infinity"
+                                onAction="#onVerifyCode">
+                            <VBox.margin><Insets bottom="14"/></VBox.margin>
+                        </Button>
+
+                        <Hyperlink fx:id="linkBackToRegister"
+                                   text="Volver y corregir mis datos"
+                                   styleClass="login-switch-link"
+                                   onAction="#onBackToRegister"/>
+                    </VBox>
 
                 </VBox>
             </VBox>

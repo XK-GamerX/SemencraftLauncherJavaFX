@@ -1,5 +1,15 @@
+@font-face {
+    font-family: "SemenCraft Heading";
+    src: url("assets/font2.ttf");
+}
+
 .root {
     -fx-background-color: transparent;
+}
+
+.button,
+.toggle-button {
+    -fx-font-family: "SemenCraft Heading";
 }
 
 .launcher-root {
@@ -199,6 +209,7 @@
     -fx-text-fill: rgba(224, 234, 250, 0.96);
     -fx-font-size: 1.15em;
     -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
     -fx-alignment: CENTER_LEFT;
     -fx-padding: 12 16 12 16;
     -fx-border-width: 0;
@@ -223,30 +234,71 @@
 }
 
 .user-box {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(82, 112, 165, 0.30) 0%,
-            rgba(52, 73, 112, 0.44) 100%
-    );
-    -fx-border-color: rgba(165, 191, 245, 0.58);
-    -fx-border-width: 1;
-    -fx-background-radius: 10;
-    -fx-border-radius: 10;
-    -fx-padding: 14 16 14 16;
-    -fx-spacing: 6;
-    -fx-effect: dropshadow(gaussian, rgba(54, 84, 135, 0.38), 14, 0.20, 0, 0);
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-padding: 2 0 2 0;
+    -fx-spacing: 12;
+    -fx-alignment: center-left;
+    -fx-effect: none;
 }
 
 .section-label {
     -fx-text-fill: #a9c4f7;
     -fx-font-size: 0.82em;
-    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
 }
 
 .username-label {
     -fx-text-fill: rgba(235, 247, 242, 0.96);
     -fx-font-size: 1.06em;
-    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
+}
+
+.minecraft-head-shell {
+    -fx-background-color: rgba(10, 14, 24, 0.94);
+    -fx-background-radius: 999;
+    -fx-border-color: transparent;
+    -fx-border-width: 3;
+    -fx-border-radius: 999;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.34), 10, 0.25, 0, 1);
+}
+
+.minecraft-head-inner {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-background-radius: 999;
+}
+
+/* Puntito de presencia (online/AFK/jugando/offline) estilo Discord,
+   anclado en la esquina inferior derecha del avatar. */
+.presence-dot {
+    -fx-stroke: rgba(15, 18, 28, 0.96);
+    -fx-stroke-width: 2.4;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 4, 0.3, 0, 1);
+}
+
+.presence-dot-online {
+    -fx-fill: #3BA55D;
+}
+
+.presence-dot-idle {
+    -fx-fill: #FAA61A;
+}
+
+.presence-dot-playing {
+    -fx-fill: #5865F2;
+}
+
+.presence-dot-offline {
+    -fx-fill: #747F8D;
+}
+
+.notification-meta {
+    -fx-text-fill: rgba(42, 34, 24, 0.82);
+    -fx-font-family: "SemenCraft Heading";
+    -fx-font-size: 0.84em;
 }
 
 .version-label {
@@ -264,6 +316,7 @@
     -fx-text-fill: rgba(234, 240, 255, 0.96);
     -fx-font-size: 1.02em;
     -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
     -fx-alignment: CENTER_LEFT;
     -fx-padding: 12 16;
     -fx-cursor: hand;
@@ -295,18 +348,18 @@
 
 .play-btn {
     -fx-background-color: linear-gradient(to bottom, rgba(122, 160, 230, 0.94), rgba(84, 119, 190, 0.96));
-    -fx-background-radius: 14;
+    -fx-background-radius: 18;
     -fx-border-color: rgba(211, 226, 255, 0.84);
-    -fx-border-radius: 14;
+    -fx-border-radius: 18;
     -fx-border-width: 1;
     -fx-text-fill: #f6f9ff;
-    -fx-font-size: 1.44em;
+    -fx-font-size: 1.87em;
     -fx-font-weight: bold;
-    -fx-pref-width: 300px;
-    -fx-min-width: 230px;
-    -fx-max-width: 390px;
-    -fx-pref-height: 74px;
-    -fx-min-height: 58px;
+    -fx-pref-width: 390px;
+    -fx-min-width: 300px;
+    -fx-max-width: 507px;
+    -fx-pref-height: 96px;
+    -fx-min-height: 75px;
     -fx-cursor: hand;
     -fx-effect: dropshadow(gaussian, rgba(70, 103, 170, 0.50), 28, 0.24, 0, 6);
 }
@@ -436,8 +489,16 @@
     -fx-font-size: 0.88em;
 }
 
+.settings-view {
+    -fx-background-color: rgba(0, 0, 0, 0.55);
+}
+
+.menu-dark-bg {
+    -fx-background-color: rgba(0, 0, 0, 0.55);
+}
+
 .settings-root {
-    -fx-padding: 24 34 24 34;
+    -fx-padding: 20 18 20 18;
     -fx-alignment: top-left;
 }
 
@@ -452,9 +513,10 @@
 }
 
 .settings-tab-btn {
-    -fx-background-color: rgba(148, 172, 218, 0.18);
+    -fx-background-color: rgba(140, 162, 226, 0.18);
     -fx-text-fill: rgba(222, 233, 251, 0.95);
     -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
     -fx-padding: 8 14 8 14;
     -fx-background-radius: 10;
     -fx-border-color: rgba(157, 183, 232, 0.42);
@@ -464,11 +526,11 @@
 }
 
 .settings-tab-btn:hover {
-    -fx-background-color: rgba(135, 168, 230, 0.34);
+    -fx-background-color: rgba(129, 155, 236, 0.36);
 }
 
 .settings-tab-btn-active {
-    -fx-background-color: linear-gradient(to bottom, rgba(126, 160, 231, 0.92), rgba(95, 124, 194, 0.94));
+    -fx-background-color: linear-gradient(to bottom, rgba(118, 146, 238, 0.96), rgba(87, 105, 207, 0.98));
     -fx-text-fill: white;
     -fx-border-color: rgba(211, 226, 255, 0.85);
 }
@@ -491,6 +553,7 @@
     -fx-text-fill: rgba(234, 242, 255, 0.98);
     -fx-font-size: 1.66em;
     -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
 }
 
 .settings-subtitle {
@@ -517,6 +580,7 @@
     -fx-text-fill: rgba(218, 230, 255, 0.97);
     -fx-font-size: 1.10em;
     -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
 }
 
 .settings-hint {
@@ -586,7 +650,7 @@
 }
 
 .settings-save-btn {
-    -fx-background-color: linear-gradient(to bottom, #7da8f0 0%, #5f81cf 100%);
+    -fx-background-color: linear-gradient(to bottom, #7699f1 0%, #576fd6 100%);
     -fx-background-radius: 10;
     -fx-border-width: 0;
     -fx-text-fill: #ffffff;
@@ -597,11 +661,11 @@
 }
 
 .settings-save-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, #93b9f5 0%, #6f94df 100%);
+    -fx-background-color: linear-gradient(to bottom, #86a8f7 0%, #6780e0 100%);
 }
 
 .settings-save-btn:pressed {
-    -fx-background-color: #4a69ae;
+    -fx-background-color: #4c60bc;
 }
 
 .settings-save-btn:disabled {
@@ -662,10 +726,33 @@
     -fx-font-weight: bold;
 }
 
+.mod-filter-chip {
+    -fx-background-color: rgba(112, 136, 208, 0.18);
+    -fx-border-color: rgba(166, 188, 237, 0.52);
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-text-fill: rgba(232, 240, 255, 0.98);
+    -fx-font-family: "SemenCraft Heading";
+    -fx-font-weight: bold;
+    -fx-padding: 7 14 7 14;
+    -fx-cursor: hand;
+}
+
+.mod-filter-chip:hover {
+    -fx-background-color: rgba(128, 152, 224, 0.34);
+}
+
+.mod-filter-chip:selected {
+    -fx-background-color: linear-gradient(to bottom, #7a98f4 0%, #5d74da 100%);
+    -fx-border-color: rgba(218, 231, 255, 0.88);
+    -fx-text-fill: white;
+}
+
 .mod-page-btn {
-    -fx-background-color: rgba(122, 152, 210, 0.32);
+    -fx-background-color: rgba(104, 128, 218, 0.38);
     -fx-text-fill: rgba(232, 241, 255, 0.96);
-    -fx-border-color: rgba(156, 181, 227, 0.56);
+    -fx-border-color: rgba(165, 185, 236, 0.58);
     -fx-border-width: 1;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
@@ -674,7 +761,7 @@
 }
 
 .mod-page-btn:hover {
-    -fx-background-color: rgba(142, 173, 232, 0.48);
+    -fx-background-color: rgba(124, 146, 235, 0.56);
 }
 
 .mod-page-btn:disabled {
@@ -730,13 +817,113 @@
 }
 
 .mod-toggle-btn:selected {
-    -fx-background-color: linear-gradient(to bottom, #8dc0ff 0%, #6796de 100%);
+    -fx-background-color: linear-gradient(to bottom, #7ea2f8 0%, #627adf 100%);
     -fx-border-color: rgba(214, 230, 255, 0.84);
     -fx-text-fill: white;
 }
 
 .mod-toggle-btn:hover {
     -fx-background-color: rgba(166, 192, 236, 0.40);
+}
+
+.resourcepacks-section {
+    -fx-spacing: 14;
+}
+
+.resourcepack-editor {
+    -fx-alignment: top-center;
+}
+
+.resourcepack-column {
+    -fx-background-color: rgba(9, 14, 22, 0.54);
+    -fx-border-color: rgba(136, 162, 209, 0.28);
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 14;
+    -fx-spacing: 10;
+}
+
+.resourcepack-column-title {
+    -fx-text-fill: rgba(232, 242, 255, 0.98);
+    -fx-font-size: 1.04em;
+    -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
+}
+
+.resourcepack-list {
+    -fx-spacing: 10;
+}
+
+.resourcepack-item-row {
+    -fx-background-color: linear-gradient(to bottom, rgba(23, 33, 51, 0.78), rgba(13, 20, 32, 0.88));
+    -fx-border-color: rgba(151, 177, 224, 0.34);
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-padding: 10 12 10 12;
+    -fx-min-height: 78;
+}
+
+.resourcepack-item-copy {
+    -fx-alignment: center-left;
+}
+
+.resourcepack-item-name {
+    -fx-text-fill: rgba(241, 247, 255, 0.99);
+    -fx-font-size: 0.98em;
+    -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
+}
+
+.resourcepack-item-description {
+    -fx-text-fill: rgba(177, 194, 221, 0.92);
+    -fx-font-size: 0.84em;
+}
+
+.resourcepack-toggle-btn,
+.resourcepack-order-btn {
+    -fx-background-color: rgba(128, 153, 198, 0.24);
+    -fx-border-color: rgba(165, 190, 231, 0.44);
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-text-fill: rgba(236, 244, 255, 0.98);
+    -fx-font-weight: bold;
+    -fx-font-family: "Minecraft Ten";
+    -fx-padding: 6 12 6 12;
+    -fx-cursor: hand;
+    -fx-pref-width: 96;
+    -fx-min-width: 96;
+    -fx-alignment: center;
+}
+
+.resourcepack-toggle-btn:hover,
+.resourcepack-order-btn:hover {
+    -fx-background-color: rgba(152, 180, 227, 0.40);
+}
+
+.resourcepack-toggle-btn-selected {
+    -fx-background-color: linear-gradient(to bottom, #7a9cf3 0%, #6078db 100%);
+    -fx-border-color: rgba(214, 230, 255, 0.82);
+    -fx-text-fill: white;
+}
+
+.resourcepack-remove-btn {
+    -fx-background-color: linear-gradient(to bottom, #d26478 0%, #b74a60 100%);
+    -fx-border-color: rgba(255, 207, 218, 0.78);
+    -fx-text-fill: white;
+}
+
+.resourcepack-remove-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, #df7187 0%, #c4576d 100%);
+}
+
+.resourcepack-order-btn:disabled {
+    -fx-background-color: rgba(60, 74, 96, 0.55);
+    -fx-text-fill: rgba(195, 208, 233, 0.54);
+    -fx-border-color: rgba(120, 142, 182, 0.30);
+    -fx-cursor: default;
 }
 
 .combo-box-base:showing {
@@ -765,11 +952,22 @@
     -fx-effect: none;
 }
 
+.login-scroll .scroll-bar:vertical {
+    -fx-opacity: 0.92;
+    -fx-max-width: 10;
+    -fx-pref-width: 10;
+    -fx-min-width: 10;
+}
+
+.login-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: linear-gradient(to bottom, rgba(186, 209, 250, 0.95), rgba(117, 147, 209, 0.98));
+}
+
 .login-subtitle {
     -fx-text-fill: rgba(174, 194, 228, 0.90);
     -fx-font-size: 0.98em;
-    -fx-text-alignment: center;
-    -fx-alignment: center;
+    -fx-text-alignment: left;
+    -fx-alignment: center-left;
 }
 
 .login-field-lbl {
@@ -801,8 +999,13 @@
     -fx-opacity: 0;
 }
 
+.login-note-lbl {
+    -fx-text-fill: rgba(156, 176, 210, 0.88);
+    -fx-font-size: 0.88em;
+}
+
 .login-green-btn {
-    -fx-background-color: linear-gradient(to bottom, #7ea9f2 0%, #5f82d0 100%);
+    -fx-background-color: linear-gradient(to bottom, #789bf1 0%, #5b72d7 100%);
     -fx-background-radius: 10;
     -fx-border-width: 0;
     -fx-text-fill: white;
@@ -813,11 +1016,11 @@
 }
 
 .login-green-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, #95bcf6 0%, #7096df 100%);
+    -fx-background-color: linear-gradient(to bottom, #89abf7 0%, #6a81e0 100%);
 }
 
 .login-green-btn:pressed {
-    -fx-background-color: #4968ad;
+    -fx-background-color: #4d60ba;
     -fx-scale-x: 0.98;
     -fx-scale-y: 0.98;
 }
@@ -825,6 +1028,17 @@
 .login-green-btn:disabled {
     -fx-background-color: rgba(76, 105, 162, 0.52);
     -fx-text-fill: rgba(255, 255, 255, 0.54);
+}
+
+.login-switch-link {
+    -fx-text-fill: #99beff;
+    -fx-border-color: transparent;
+    -fx-padding: 4 0 0 0;
+    -fx-font-size: 0.92em;
+}
+
+.login-switch-link:hover {
+    -fx-text-fill: #c3dbff;
 }
 
 .combo-box-popup > .list-view {
@@ -892,4 +1106,591 @@
     -fx-font-size: 0.88em;
     -fx-padding: 8 10 8 10;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.40), 12, 0.20, 0, 2);
+}
+
+.notification-bell-btn {
+    -fx-background-color: linear-gradient(to bottom, rgba(12, 18, 28, 0.88), rgba(8, 12, 20, 0.94));
+    -fx-border-color: rgba(171, 192, 231, 0.42);
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-padding: 9 11;
+    -fx-cursor: hand;
+}
+
+.titlebar-bell-btn {
+    -fx-padding: 7 9;
+}
+
+.notification-bell-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(20, 30, 44, 0.92), rgba(11, 16, 26, 0.98));
+    -fx-effect: dropshadow(gaussian, rgba(119, 151, 214, 0.28), 18, 0.20, 0, 3);
+}
+
+.notification-badge {
+    -fx-background-color: linear-gradient(to bottom, #ff5d6e 0%, #d93647 100%);
+    -fx-background-radius: 999;
+    -fx-border-color: rgba(255, 255, 255, 0.82);
+    -fx-border-width: 0.9;
+    -fx-border-radius: 999;
+    -fx-padding: 0 2 0 2;
+    -fx-min-width: 11;
+    -fx-min-height: 11;
+    -fx-pref-width: 11;
+    -fx-pref-height: 11;
+}
+
+.notification-badge-label {
+    -fx-text-fill: white;
+    -fx-font-size: 2em;
+    -fx-font-weight: bold;
+}
+
+.notifications-shell {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.42), 26, 0.22, 0, 10);
+}
+
+.notifications-surface {
+    -fx-background-color: transparent;
+}
+
+.notifications-close-btn {
+    -fx-background-color: rgba(122, 86, 38, 0.20);
+    -fx-border-color: rgba(106, 72, 28, 0.34);
+    -fx-border-width: 1;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-text-fill: #2d1f0d;
+    -fx-font-weight: bold;
+    -fx-padding: 4 11 4 11;
+    -fx-cursor: hand;
+}
+
+.notifications-close-btn:hover {
+    -fx-background-color: rgba(147, 100, 43, 0.32);
+}
+
+.notifications-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.notifications-scroll > .viewport,
+.notifications-scroll > .corner {
+    -fx-background-color: transparent;
+}
+
+.notifications-list {
+    -fx-fill-width: true;
+}
+
+.notifications-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-padding: 0 0 0 6;
+}
+
+.notifications-scroll .thumb {
+    -fx-background-color: rgba(120, 88, 40, 0.52);
+    -fx-background-radius: 999;
+}
+
+.notifications-scroll .track {
+    -fx-background-color: rgba(255, 247, 232, 0.28);
+    -fx-background-radius: 999;
+}
+
+.notification-card {
+    -fx-background-color: rgba(255, 250, 240, 0.38);
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 10 14 10 14;
+    -fx-max-width: 242;
+}
+
+.notification-empty-state {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 8 10 8 10;
+    -fx-max-width: 242;
+}
+
+.notification-title {
+    -fx-text-fill: #20160c;
+    -fx-font-size: 1.02em;
+    -fx-font-weight: bold;
+}
+
+.notification-body {
+    -fx-text-fill: #322418;
+    -fx-font-size: 0.94em;
+}
+
+.notification-state {
+    -fx-text-fill: #6a5633;
+    -fx-font-size: 0.86em;
+    -fx-font-weight: bold;
+}
+
+.notification-accept-btn,
+.notification-reject-btn,
+.team-action-primary,
+.team-action-secondary,
+.team-kick-btn {
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-padding: 10 16 10 16;
+    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
+    -fx-cursor: hand;
+}
+
+.notification-accept-btn,
+.team-action-primary {
+    -fx-background-color: linear-gradient(to bottom, #799cf1 0%, #5b72d7 100%);
+    -fx-text-fill: white;
+}
+
+.notification-accept-btn:hover,
+.team-action-primary:hover {
+    -fx-background-color: linear-gradient(to bottom, #8aacf7 0%, #6980df 100%);
+}
+
+.notification-reject-btn,
+.team-action-secondary {
+    -fx-background-color: rgba(37, 46, 61, 0.78);
+    -fx-border-color: rgba(171, 192, 231, 0.30);
+    -fx-border-width: 1;
+    -fx-text-fill: rgba(232, 240, 255, 0.96);
+}
+
+.notification-reject-btn:hover,
+.team-action-secondary:hover {
+    -fx-background-color: rgba(51, 62, 82, 0.92);
+}
+
+.team-root {
+    -fx-alignment: top-center;
+}
+
+.skin-root {
+    -fx-alignment: center;
+}
+
+.skin-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.skin-scroll > .viewport,
+.skin-scroll > .corner {
+    -fx-background-color: transparent;
+}
+
+.skin-card {
+    -fx-spacing: 22;
+    -fx-padding: 34 40 36 40;
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(18, 24, 37, 0.94) 0%,
+            rgba(10, 15, 24, 0.98) 100%
+    );
+    -fx-border-color: rgba(166, 191, 236, 0.34);
+    -fx-border-width: 1;
+    -fx-background-radius: 26;
+    -fx-border-radius: 26;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 36, 0.24, 0, 10);
+}
+
+.skin-preview-row {
+    -fx-padding: 6 0 4 0;
+    -fx-spacing: 26;
+    -fx-alignment: top-left;
+}
+
+.skin-preview-card {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.04) 100%
+    );
+    -fx-background-radius: 20;
+    -fx-border-color: rgba(152, 180, 232, 0.26);
+    -fx-border-radius: 18;
+    -fx-padding: 18 20 18 20;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 18, 0.16, 0, 3);
+}
+
+.skin-preview-card-head {
+    -fx-min-width: 380;
+    -fx-pref-width: 380;
+}
+
+.skin-preview-card-sheet {
+    -fx-min-width: 290;
+    -fx-pref-width: 290;
+}
+
+.skin-content-row {
+    -fx-alignment: top-left;
+    -fx-spacing: 18;
+}
+
+.skin-preview-label {
+    -fx-text-fill: rgba(221, 235, 255, 0.96);
+    -fx-font-size: 1.06em;
+    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
+}
+
+.skin-head-placeholder,
+.skin-sheet-frame {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(8, 12, 19, 0.88) 0%,
+            rgba(5, 9, 15, 0.94) 100%
+    );
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(170, 193, 235, 0.26);
+    -fx-border-radius: 16;
+    -fx-border-width: 1;
+    -fx-padding: 18;
+}
+
+.skin-body-row {
+    -fx-alignment: center;
+    -fx-spacing: 14;
+}
+
+.skin-body-figure {
+    -fx-alignment: top-center;
+    -fx-spacing: 8;
+}
+
+.skin-body-frame {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(8, 12, 19, 0.92) 0%,
+            rgba(5, 9, 15, 0.98) 100%
+    );
+    -fx-background-radius: 16;
+    -fx-border-color: rgba(170, 193, 235, 0.24);
+    -fx-border-radius: 16;
+    -fx-border-width: 1;
+    -fx-padding: 14;
+}
+
+.skin-body-caption {
+    -fx-text-fill: rgba(177, 195, 225, 0.86);
+    -fx-font-size: 0.88em;
+}
+
+.skin-empty-preview {
+    -fx-text-fill: rgba(178, 197, 227, 0.88);
+    -fx-font-size: 0.90em;
+    -fx-font-weight: bold;
+}
+
+.skin-state-label {
+    -fx-text-fill: rgba(240, 247, 255, 0.98);
+    -fx-font-size: 1.18em;
+    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
+}
+
+.skin-details-label {
+    -fx-text-fill: rgba(193, 210, 238, 0.92);
+    -fx-font-size: 0.96em;
+}
+
+.skin-info-panel {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.05) 0%,
+            rgba(255, 255, 255, 0.03) 100%
+    );
+    -fx-background-radius: 18;
+    -fx-border-color: rgba(147, 173, 223, 0.22);
+    -fx-border-radius: 18;
+    -fx-border-width: 1;
+    -fx-padding: 22 26 22 26;
+    -fx-spacing: 12;
+    -fx-min-width: 260;
+}
+
+.skin-model-row {
+    -fx-padding: 2 0 0 0;
+}
+
+.skin-action-row {
+    -fx-padding: 8 0 0 0;
+}
+
+.skin-edit-wrapper {
+    -fx-alignment: center;
+}
+
+.skin-edit-overlay {
+    -fx-background-color: rgba(4, 8, 15, 0.50);
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+}
+
+.skin-edit-indicator {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.26), 14, 0.24, 0, 3);
+}
+
+.skin-upload-shell {
+    -fx-background-color: transparent;
+    -fx-alignment: center;
+}
+
+.skin-upload-btn {
+    -fx-background-color: linear-gradient(to bottom, rgba(13, 20, 30, 0.92), rgba(8, 12, 20, 0.98));
+    -fx-border-color: rgba(164, 188, 240, 0.34);
+    -fx-border-width: 1.2;
+    -fx-background-radius: 18;
+    -fx-border-radius: 18;
+    -fx-text-fill: rgba(240, 246, 255, 0.95);
+    -fx-font-family: "SemenCraft Heading";
+    -fx-font-weight: bold;
+    -fx-pref-width: 230;
+    -fx-pref-height: 230;
+    -fx-min-width: 230;
+    -fx-min-height: 230;
+    -fx-max-width: 230;
+    -fx-max-height: 230;
+    -fx-cursor: hand;
+}
+
+.skin-upload-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(21, 31, 47, 0.96), rgba(10, 16, 26, 1.00));
+}
+
+.team-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: transparent;
+}
+
+.team-scroll > .viewport,
+.team-scroll > .corner {
+    -fx-background-color: transparent;
+}
+
+.team-card {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(15, 21, 32, 0.86) 0%,
+            rgba(10, 15, 24, 0.92) 100%
+    );
+    -fx-border-color: rgba(152, 180, 232, 0.34);
+    -fx-border-width: 1;
+    -fx-background-radius: 20;
+    -fx-border-radius: 20;
+    -fx-padding: 22 24 22 24;
+}
+
+.team-heading {
+    -fx-text-fill: rgba(239, 246, 255, 0.98);
+    -fx-font-size: 1.56em;
+    -fx-font-family: "Minecraft Ten";
+}
+
+.team-body {
+    -fx-text-fill: rgba(176, 194, 226, 0.92);
+    -fx-font-size: 0.95em;
+}
+
+.team-field-label {
+    -fx-text-fill: #a8c3f6;
+    -fx-font-size: 0.90em;
+    -fx-font-weight: bold;
+}
+
+.team-upload-btn {
+    -fx-background-color: linear-gradient(to bottom, rgba(13, 20, 30, 0.92), rgba(8, 12, 20, 0.98));
+    -fx-border-color: rgba(164, 188, 240, 0.34);
+    -fx-border-width: 1.2;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-text-fill: rgba(240, 246, 255, 0.95);
+    -fx-font-weight: bold;
+    -fx-pref-width: 112;
+    -fx-pref-height: 112;
+    -fx-min-width: 112;
+    -fx-min-height: 112;
+    -fx-max-width: 112;
+    -fx-max-height: 112;
+    -fx-cursor: hand;
+}
+
+.team-upload-btn:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(21, 31, 47, 0.96), rgba(10, 16, 26, 1.00));
+}
+
+.team-icon-edit-wrapper {
+    -fx-alignment: center;
+}
+
+.team-icon-edit-overlay {
+    -fx-background-color: rgba(4, 8, 15, 0.50);
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+}
+
+.team-icon-edit-indicator {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.26), 14, 0.24, 0, 3);
+}
+
+.team-icon-edit-indicator-label {
+    -fx-text-fill: rgba(245, 248, 255, 0.96);
+    -fx-font-size: 0.90em;
+    -fx-font-weight: bold;
+}
+
+.team-color-picker {
+    -fx-color-label-visible: false;
+    -fx-pref-width: 54;
+}
+
+.team-color-swatch {
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: rgba(255, 255, 255, 0.34);
+    -fx-border-width: 1.4;
+    -fx-pref-width: 44;
+    -fx-pref-height: 44;
+    -fx-min-width: 44;
+    -fx-min-height: 44;
+}
+
+.team-color-palette {
+    -fx-max-width: 230;
+    -fx-alignment: center;
+}
+
+.team-palette-btn {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.34);
+    -fx-border-width: 1.2;
+    -fx-pref-width: 22;
+    -fx-pref-height: 22;
+    -fx-min-width: 22;
+    -fx-min-height: 22;
+    -fx-max-width: 22;
+    -fx-max-height: 22;
+    -fx-cursor: hand;
+}
+
+.team-palette-btn:hover {
+    -fx-scale-x: 1.08;
+    -fx-scale-y: 1.08;
+}
+
+.team-palette-btn:disabled {
+    -fx-opacity: 0.26;
+    -fx-cursor: default;
+    -fx-border-color: rgba(255, 255, 255, 0.16);
+}
+
+.team-validation-error {
+    -fx-text-fill: #ff9191;
+    -fx-font-size: 0.86em;
+    -fx-font-weight: bold;
+}
+
+.minecraft-search-field {
+    -fx-font-family: "Minecraft Ten";
+}
+
+.team-crop-root {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(16, 22, 33, 0.98) 0%,
+            rgba(10, 15, 24, 0.98) 100%
+    );
+    -fx-font-family: "Minecraft Ten";
+}
+
+.team-crop-viewport {
+    -fx-background-color: rgba(4, 8, 14, 0.92);
+    -fx-border-color: rgba(255, 242, 170, 0.95);
+    -fx-border-width: 2;
+}
+
+.team-crop-frame {
+    -fx-fill: transparent;
+    -fx-stroke: rgba(255, 242, 170, 0.98);
+    -fx-stroke-width: 2;
+}
+
+.team-crop-circle {
+    -fx-fill: transparent;
+    -fx-stroke: rgba(234, 243, 255, 0.74);
+    -fx-stroke-width: 1.4;
+}
+
+.team-crop-grid-line {
+    -fx-fill: rgba(255, 247, 179, 0.65);
+}
+
+.team-icon-ring {
+    -fx-border-width: 5;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-padding: 6;
+}
+
+.team-icon-inner {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+}
+
+.team-member-row {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+    -fx-background-radius: 16;
+    -fx-border-radius: 16;
+    -fx-border-color: rgba(152, 180, 232, 0.20);
+    -fx-border-width: 1;
+    -fx-padding: 10 12 10 12;
+}
+
+.team-member-name {
+    -fx-text-fill: rgba(239, 246, 255, 0.98);
+    -fx-font-size: 1.02em;
+    -fx-font-weight: bold;
+    -fx-font-family: "SemenCraft Heading";
+}
+
+.team-member-role {
+    -fx-text-fill: rgba(166, 186, 219, 0.86);
+    -fx-font-size: 0.84em;
+}
+
+.team-kick-btn {
+    -fx-background-color: rgba(113, 34, 44, 0.92);
+    -fx-text-fill: white;
+}
+
+.team-edit-btn {
+    -fx-padding: 10 12 10 12;
+}
+
+.team-kick-btn:hover {
+    -fx-background-color: rgba(148, 42, 57, 0.98);
+}
+
+.team-modal-root {
+    -fx-background-color: linear-gradient(
+            to bottom,
+            rgba(11, 16, 26, 0.98) 0%,
+            rgba(8, 12, 20, 0.98) 100%
+    );
+    -fx-font-family: "Minecraft Ten";
 }

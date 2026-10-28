@@ -33,13 +33,24 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 final class FabricMinecraftService {
 
-    static final String TARGET_MINECRAFT_VERSION = "1.21.8";
+    static final String TARGET_MINECRAFT_VERSION = "1.21.1";
     static final int REQUIRED_JAVA_MAJOR = 21;
+    static final String JAVA_21_WINDOWS_DOWNLOAD_URL = "https://download.oracle.com/java/21/latest/jdk-21_windows-x64_bin.msi";
+
+    // Runtime portable: si no hay Java 21+ en el sistema, se descarga un JRE
+    // Eclipse Temurin (Adoptium) y se deja instalado en LauncherStorage.runtimeDirectory(),
+    // igual que hacen MultiMC/Prism/el launcher oficial de Mojang.
+    private static final String ADOPTIUM_BINARY_URL_TEMPLATE =
+            "https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/jre/hotspot/normal/eclipse";
+    private static final String PORTABLE_RUNTIME_FOLDER_NAME = "jre-21";
+    private static final double JAVA_STEP_START = 0.00;
+    private static final double JAVA_STEP_END = 0.09;
 
     private static final String USER_AGENT = "SemencraftLauncher/1.0";
     private static final String VERSION_MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -82,15 +93,7 @@ final class FabricMinecraftService {
         Objects.requireNonNull(username, "username");
         Objects.requireNonNull(config, "config");
 
-        JavaRuntimeInfo javaRuntime = detectJavaRuntime();
-        if (!javaRuntime.available()) {
-            throw new IOException("No se detecto Java. Instala Java " + REQUIRED_JAVA_MAJOR + " o superior.");
-        }
-        if (javaRuntime.majorVersion() > 0 && javaRuntime.majorVersion() < REQUIRED_JAVA_MAJOR) {
-            throw new IOException(
-                    "Java detectado: " + javaRuntime.versionString() + ". Se requiere Java " + REQUIRED_JAVA_MAJOR + " o superior."
-            );
-        }
+        JavaRuntimeInfo javaRuntime = ensureJavaRuntime(progress);
 
         LauncherStorage.ensureEnvironment();
         Path gameDir = LauncherStorage.minecraftDirectory();
@@ -101,6 +104,7 @@ final class FabricMinecraftService {
         Path assetIndexesDir = assetsDir.resolve("indexes");
         Path assetObjectsDir = assetsDir.resolve("objects");
         Path logConfigsDir = assetsDir.resolve("log_configs");
+        Path modsDir = gameDir.resolve("mods");
         Path launchLogPath = launcherDir.resolve("latest-launch.log");
 
         report(progress, "Preparando directorios...", 0.02, 0.0);
@@ -110,6 +114,7 @@ final class FabricMinecraftService {
         Files.createDirectories(assetIndexesDir);
         Files.createDirectories(assetObjectsDir);
         Files.createDirectories(logConfigsDir);
+        Files.createDirectories(modsDir);
         Files.createDirectories(launcherDir);
 
         report(progress, "Sincronizando modpack Semencraft...", 0.04, 0.0);
@@ -122,6 +127,9 @@ final class FabricMinecraftService {
             syncStatus += " (limpieza: " + (syncResult.removedMods() + syncResult.removedResourcepacks()) + " archivos)";
         }
         report(progress, syncStatus + "...", 0.05, 1.0);
+
+        SupabaseSkinService.writeRuntimeConfig(gameDir, username);
+        report(progress, "Skin Manager listo...", 0.06, 1.0);
 
         report(progress, "Consultando versiones de Minecraft...", 0.05, 0.0);
         JsonObject versionManifest = fetchJsonObject(VERSION_MANIFEST_URL);
@@ -305,7 +313,7 @@ final class FabricMinecraftService {
         }
 
         List<String> command = new ArrayList<>();
-        command.add(resolveJavaBinary().toString());
+        command.add(resolveJavaBinary(javaRuntime).toString());
         command.addAll(jvmArgs);
         command.add(mainClass);
         command.addAll(gameArgs);
@@ -1089,25 +1097,496 @@ final class FabricMinecraftService {
         return result;
     }
 
+    /**
+     * Se asegura de que haya un Java {@link #REQUIRED_JAVA_MAJOR}+ utilizable.
+     * Si ya hay uno (del sistema o de una descarga previa), lo devuelve tal cual.
+     * Si no, descarga un JRE portable de Eclipse Temurin, lo deja instalado en
+     * LauncherStorage.runtimeDirectory() y lo devuelve listo para usar.
+     */
+    private JavaRuntimeInfo ensureJavaRuntime(ProgressListener progress) throws Exception {
+        JavaRuntimeInfo detected = detectJavaRuntime();
+        if (detected.available() && detected.majorVersion() >= REQUIRED_JAVA_MAJOR) {
+            report(progress, "Java " + detected.versionString() + " listo.", JAVA_STEP_END, 1.0);
+            return detected;
+        }
+        report(
+                progress,
+                "No se encontro Java " + REQUIRED_JAVA_MAJOR + ", descargando runtime portable...",
+                JAVA_STEP_START + 0.005,
+                0.0
+        );
+        return downloadPortableJavaRuntime(progress);
+    }
+
+    private JavaRuntimeInfo downloadPortableJavaRuntime(ProgressListener progress) throws Exception {
+        String adoptiumOs = switch (currentOsName()) {
+            case "windows" -> "windows";
+            case "osx" -> "mac";
+            default -> "linux";
+        };
+        String arch = currentArch();
+        if ("x86".equals(arch)) {
+            throw new IOException(
+                    "No hay runtime portable de Java " + REQUIRED_JAVA_MAJOR + " para sistemas de 32 bits. Instala Java "
+                            + REQUIRED_JAVA_MAJOR + " manualmente."
+            );
+        }
+        String adoptiumArch = "arm64".equals(arch) ? "aarch64" : "x64";
+        String downloadUrl = String.format(
+                Locale.ROOT,
+                ADOPTIUM_BINARY_URL_TEMPLATE,
+                REQUIRED_JAVA_MAJOR,
+                adoptiumOs,
+                adoptiumArch
+        );
+
+        Path runtimeDir = LauncherStorage.runtimeDirectory();
+        Files.createDirectories(runtimeDir);
+        Path archiveFile = runtimeDir.resolve("_download.tmp");
+        Path extractTmpDir = runtimeDir.resolve("_extract_tmp");
+        Path finalDir = runtimeDir.resolve(PORTABLE_RUNTIME_FOLDER_NAME);
+
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= DOWNLOAD_RETRY_COUNT; attempt++) {
+            try {
+                downloadRuntimeArchive(downloadUrl, archiveFile, progress);
+
+                report(progress, "Extrayendo runtime de Java...", JAVA_STEP_END - 0.01, 0.0);
+                cleanDirectory(extractTmpDir);
+                if ("windows".equals(adoptiumOs)) {
+                    extractZipArchive(archiveFile, extractTmpDir);
+                } else {
+                    extractTarGzArchive(archiveFile, extractTmpDir);
+                }
+
+                Path extractedRoot = singleSubdirectory(extractTmpDir);
+                if (extractedRoot == null) {
+                    throw new IOException("El paquete de runtime descargado tiene un formato inesperado.");
+                }
+
+                if (Files.exists(finalDir)) {
+                    deleteRecursive(finalDir);
+                }
+                Files.createDirectories(finalDir.getParent());
+                moveDirectory(extractedRoot, finalDir);
+
+                Files.deleteIfExists(archiveFile);
+                deleteRecursive(extractTmpDir);
+
+                JavaRuntimeInfo info = probeExtractedRuntime(finalDir);
+                if (info == null || !info.available() || info.majorVersion() < REQUIRED_JAVA_MAJOR) {
+                    throw new IOException("El runtime portable descargado no paso la verificacion de version.");
+                }
+                report(progress, "Runtime de Java " + info.versionString() + " listo.", JAVA_STEP_END, 1.0);
+                return info;
+            } catch (Exception ex) {
+                lastError = ex;
+                Files.deleteIfExists(archiveFile);
+                deleteRecursiveQuiet(extractTmpDir);
+                if (attempt >= DOWNLOAD_RETRY_COUNT || !isRetryableDownloadError(ex)) {
+                    break;
+                }
+                try {
+                    Thread.sleep(DOWNLOAD_RETRY_BASE_DELAY_MS * attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Descarga del runtime de Java interrumpida.", interrupted);
+                }
+            }
+        }
+
+        String suffix = lastError == null
+                ? "Error desconocido."
+                : (lastError.getMessage() == null || lastError.getMessage().isBlank()
+                ? lastError.toString()
+                : lastError.getMessage());
+        throw new IOException(
+                "No se pudo preparar un runtime de Java " + REQUIRED_JAVA_MAJOR + " portable. " + suffix, lastError
+        );
+    }
+
+    private void downloadRuntimeArchive(String url, Path target, ProgressListener progress) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .header("User-Agent", USER_AGENT)
+                .GET()
+                .timeout(Duration.ofMinutes(10))
+                .build();
+        HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        int statusCode = response.statusCode();
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new IOException("Error HTTP " + statusCode + " al descargar el runtime de Java.");
+        }
+        long expectedLength = response.headers().firstValueAsLong("Content-Length").orElse(-1);
+        Path temp = target.resolveSibling(target.getFileName() + ".part");
+        try (InputStream in = response.body();
+             OutputStream out = Files.newOutputStream(
+                     temp,
+                     StandardOpenOption.CREATE,
+                     StandardOpenOption.TRUNCATE_EXISTING,
+                     StandardOpenOption.WRITE
+             )) {
+            byte[] buffer = new byte[64 * 1024];
+            long read = 0;
+            int n;
+            while ((n = in.read(buffer)) >= 0) {
+                if (n == 0) {
+                    continue;
+                }
+                out.write(buffer, 0, n);
+                read += n;
+                if (expectedLength > 0) {
+                    double ratio = Math.min(1.0, (double) read / expectedLength);
+                    double total = (JAVA_STEP_START + 0.01) + (JAVA_STEP_END - 0.02 - JAVA_STEP_START) * ratio;
+                    report(progress, "Descargando runtime de Java " + REQUIRED_JAVA_MAJOR + "...", total, ratio);
+                }
+            }
+        } catch (Exception ex) {
+            Files.deleteIfExists(temp);
+            throw ex;
+        }
+        moveReplace(temp, target);
+    }
+
+    private static void extractZipArchive(Path archive, Path destDir) throws IOException {
+        Files.createDirectories(destDir);
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(archive))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String name = entry.getName().replace('\\', '/');
+                Path out = destDir.resolve(name).normalize();
+                if (!out.startsWith(destDir)) {
+                    continue;
+                }
+                if (entry.isDirectory()) {
+                    Files.createDirectories(out);
+                    continue;
+                }
+                Files.createDirectories(out.getParent());
+                try (OutputStream os = Files.newOutputStream(
+                        out,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE
+                )) {
+                    zis.transferTo(os);
+                }
+            }
+        }
+    }
+
+    /**
+     * Lector minimo de tar (formato ustar/GNU) sobre gzip, sin dependencias externas.
+     * Soporta archivos regulares, directorios, symlinks y nombres largos (GNU 'L').
+     */
+    private static void extractTarGzArchive(Path archive, Path destDir) throws IOException {
+        Files.createDirectories(destDir);
+        try (InputStream fileIn = Files.newInputStream(archive);
+             GZIPInputStream gzIn = new GZIPInputStream(fileIn, 64 * 1024)) {
+            byte[] header = new byte[512];
+            String pendingLongName = null;
+            while (true) {
+                int read = readFully(gzIn, header);
+                if (read < 512) {
+                    break;
+                }
+                if (isZeroBlock(header)) {
+                    continue;
+                }
+
+                char typeFlag = (char) header[156];
+                long size = tarOctal(header, 124, 12);
+
+                if (typeFlag == 'L') {
+                    byte[] data = new byte[(int) size];
+                    readFully(gzIn, data);
+                    skipPadding(gzIn, size);
+                    pendingLongName = new String(data, StandardCharsets.UTF_8).replace("\0", "").trim();
+                    continue;
+                }
+                if (typeFlag == 'x' || typeFlag == 'g' || typeFlag == 'K') {
+                    skipExact(gzIn, size);
+                    skipPadding(gzIn, size);
+                    continue;
+                }
+
+                String name = pendingLongName != null ? pendingLongName : tarString(header, 0, 100);
+                pendingLongName = null;
+                String prefix = tarString(header, 345, 155);
+                if (!prefix.isEmpty()) {
+                    name = prefix + "/" + name;
+                }
+                String linkName = tarString(header, 157, 100);
+                int mode = (int) tarOctal(header, 100, 8);
+
+                if (name.isBlank()) {
+                    skipExact(gzIn, size);
+                    skipPadding(gzIn, size);
+                    continue;
+                }
+
+                Path out = destDir.resolve(name).normalize();
+                if (!out.startsWith(destDir)) {
+                    skipExact(gzIn, size);
+                    skipPadding(gzIn, size);
+                    continue;
+                }
+
+                if (typeFlag == '5') {
+                    Files.createDirectories(out);
+                    continue;
+                }
+                if (typeFlag == '2') {
+                    Path parent = out.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    try {
+                        Files.deleteIfExists(out);
+                        Files.createSymbolicLink(out, Path.of(linkName));
+                    } catch (Exception ignored) {
+                        // Symlinks no soportados (p.ej. permisos): se ignora, no es critico para ejecutar java.
+                    }
+                    continue;
+                }
+                if (typeFlag == '0' || typeFlag == '\0' || typeFlag == '7') {
+                    Path parent = out.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    try (OutputStream os = Files.newOutputStream(
+                            out,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                            StandardOpenOption.WRITE
+                    )) {
+                        byte[] buffer = new byte[64 * 1024];
+                        long remaining = size;
+                        while (remaining > 0) {
+                            int chunk = (int) Math.min(buffer.length, remaining);
+                            int n = gzIn.read(buffer, 0, chunk);
+                            if (n < 0) {
+                                throw new IOException("Archivo tar del runtime truncado.");
+                            }
+                            os.write(buffer, 0, n);
+                            remaining -= n;
+                        }
+                    }
+                    applyUnixPermissions(out, mode);
+                    skipPadding(gzIn, size);
+                    continue;
+                }
+                skipExact(gzIn, size);
+                skipPadding(gzIn, size);
+            }
+        }
+    }
+
+    private static int readFully(InputStream in, byte[] buffer) throws IOException {
+        int total = 0;
+        while (total < buffer.length) {
+            int n = in.read(buffer, total, buffer.length - total);
+            if (n < 0) {
+                break;
+            }
+            total += n;
+        }
+        return total;
+    }
+
+    private static void skipExact(InputStream in, long count) throws IOException {
+        long remaining = count;
+        byte[] buffer = new byte[8192];
+        while (remaining > 0) {
+            int chunk = (int) Math.min(buffer.length, remaining);
+            int n = in.read(buffer, 0, chunk);
+            if (n < 0) {
+                break;
+            }
+            remaining -= n;
+        }
+    }
+
+    private static void skipPadding(InputStream in, long size) throws IOException {
+        long padding = (512 - (size % 512)) % 512;
+        if (padding > 0) {
+            skipExact(in, padding);
+        }
+    }
+
+    private static boolean isZeroBlock(byte[] header) {
+        for (byte b : header) {
+            if (b != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String tarString(byte[] header, int offset, int length) {
+        int end = offset;
+        int limit = offset + length;
+        while (end < limit && header[end] != 0) {
+            end++;
+        }
+        return new String(header, offset, end - offset, StandardCharsets.UTF_8).trim();
+    }
+
+    private static long tarOctal(byte[] header, int offset, int length) {
+        String raw = tarString(header, offset, length).trim();
+        if (raw.isEmpty()) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(raw, 8);
+        } catch (NumberFormatException ex) {
+            return 0L;
+        }
+    }
+
+    private static void applyUnixPermissions(Path file, int mode) {
+        if ("windows".equals(currentOsName())) {
+            return;
+        }
+        try {
+            java.io.File f = file.toFile();
+            f.setReadable((mode & 0400) != 0, false);
+            f.setWritable((mode & 0200) != 0, false);
+            f.setExecutable((mode & 0100) != 0, false);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static Path singleSubdirectory(Path parent) throws IOException {
+        try (var stream = Files.list(parent)) {
+            for (Path entry : stream.toList()) {
+                if (Files.isDirectory(entry)) {
+                    return entry;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void deleteRecursive(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            return;
+        }
+        try (var walk = Files.walk(dir)) {
+            walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException ignored) {
+                        }
+                    });
+        }
+    }
+
+    private static void deleteRecursiveQuiet(Path dir) {
+        try {
+            deleteRecursive(dir);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void moveDirectory(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+            return;
+        } catch (IOException ignored) {
+            // Puede fallar entre distintos discos/particiones; se copia manualmente abajo.
+        }
+        Files.createDirectories(target);
+        try (var walk = Files.walk(source)) {
+            for (Path path : (Iterable<Path>) walk::iterator) {
+                Path relative = source.relativize(path);
+                if (relative.toString().isEmpty()) {
+                    continue;
+                }
+                Path dest = target.resolve(relative.toString());
+                if (Files.isSymbolicLink(path)) {
+                    Path parent = dest.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    try {
+                        Files.createSymbolicLink(dest, Files.readSymbolicLink(path));
+                    } catch (Exception ignored) {
+                    }
+                } else if (Files.isDirectory(path)) {
+                    Files.createDirectories(dest);
+                } else {
+                    Path parent = dest.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    Files.copy(path, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                }
+            }
+        }
+        deleteRecursive(source);
+    }
+
+    private static JavaRuntimeInfo probeExtractedRuntime(Path finalDir) {
+        Path javaBinary = resolvePortableJavaBinary(finalDir);
+        if (javaBinary == null) {
+            return null;
+        }
+        return probeJavaCandidate(javaBinary);
+    }
+
+    private static Path resolvePortableJavaBinary(Path root) {
+        if (root == null || !Files.isDirectory(root)) {
+            return null;
+        }
+        String executable = "windows".equals(currentOsName()) ? "java.exe" : "java";
+        Path direct = root.resolve("bin").resolve(executable);
+        if (Files.exists(direct)) {
+            return direct;
+        }
+        // Los paquetes .tar.gz de macOS traen la estructura tipica de un bundle: Contents/Home/bin/java
+        Path macStyle = root.resolve("Contents").resolve("Home").resolve("bin").resolve(executable);
+        if (Files.exists(macStyle)) {
+            return macStyle;
+        }
+        return null;
+    }
+
     static JavaRuntimeInfo detectJavaRuntime() {
         String os = currentOsName();
         String javaExecutable = "windows".equals(os) ? "java.exe" : "java";
         Path fromHome = Path.of(System.getProperty("java.home", "."), "bin", javaExecutable).toAbsolutePath().normalize();
 
         List<Path> candidates = new ArrayList<>();
+        Path portableJava = resolvePortableJavaBinary(
+                LauncherStorage.runtimeDirectory().resolve(PORTABLE_RUNTIME_FOLDER_NAME)
+        );
+        if (portableJava != null) {
+            candidates.add(portableJava);
+        }
         candidates.add(fromHome);
         candidates.add(Path.of(javaExecutable));
 
         Set<String> seen = new LinkedHashSet<>();
+        JavaRuntimeInfo bestAvailable = null;
         for (Path candidate : candidates) {
             String key = candidate.toString().toLowerCase(Locale.ROOT);
             if (!seen.add(key)) {
                 continue;
             }
             JavaRuntimeInfo info = probeJavaCandidate(candidate);
-            if (info.available()) {
+            if (!info.available()) {
+                continue;
+            }
+            if (info.majorVersion() >= REQUIRED_JAVA_MAJOR) {
                 return info;
             }
+            if (bestAvailable == null || info.majorVersion() > bestAvailable.majorVersion()) {
+                bestAvailable = info;
+            }
+        }
+        if (bestAvailable != null) {
+            return bestAvailable;
         }
         return new JavaRuntimeInfo(false, -1, "", "", "No se encontro Java en java.home ni en PATH.");
     }
@@ -1192,7 +1671,23 @@ final class FabricMinecraftService {
         return manager.defaultSelectionForTemplate(catalog, template);
     }
 
-    private static Path resolveJavaBinary() {
+    private static Path resolveJavaBinary(JavaRuntimeInfo runtimeInfo) {
+        if (runtimeInfo != null && runtimeInfo.available() && runtimeInfo.javaBinaryPath() != null && !runtimeInfo.javaBinaryPath().isBlank()) {
+            Path candidate = Path.of(runtimeInfo.javaBinaryPath()).toAbsolutePath().normalize();
+            if (Files.exists(candidate)) {
+                if ("windows".equals(currentOsName())) {
+                    Path parent = candidate.getParent();
+                    if (parent != null) {
+                        Path javaw = parent.resolve("javaw.exe");
+                        if (Files.exists(javaw)) {
+                            return javaw;
+                        }
+                    }
+                }
+                return candidate;
+            }
+        }
+
         String executable = currentOsName().equals("windows") ? "javaw.exe" : "java";
         Path java = Path.of(System.getProperty("java.home"), "bin", executable);
         if (Files.exists(java)) {

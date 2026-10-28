@@ -41,3 +41,7 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Launcher private config ###
+src/main/resources/com/semencraft/semencraftlauncherjavafx/private/
+database-repo/bot/bot-config.json

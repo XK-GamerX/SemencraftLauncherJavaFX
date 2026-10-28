@@ -18,6 +18,7 @@ final class LauncherStorage {
     private static final String APP_DIR = ".semencraft";
     private static final String LAUNCHER_DIR = "launcher";
     private static final String MINECRAFT_DIR = "minecraft";
+    private static final String RUNTIME_DIR = "runtime";
     private static final String CREDENTIALS_FILE = "credentials.dat";
     private static final String CONFIG_FILE = "config.json";
     private static final String MACHINE_SECRET = "SemencraftLauncher::v1::sealed";
@@ -127,10 +128,21 @@ final class LauncherStorage {
         return minecraftPath();
     }
 
+    /**
+     * Carpeta donde se instala (una sola vez) el runtime de Java portable
+     * que el launcher descarga automaticamente cuando no encuentra un
+     * Java 21+ en el sistema. Ej: %APPDATA%/.semencraft/runtime/jre-21
+     */
+    static Path runtimeDirectory() {
+        ensureDirectoriesOnly();
+        return runtimePath();
+    }
+
     private static void ensureDirectoriesOnly() {
         try {
             Files.createDirectories(launcherPath());
             Files.createDirectories(minecraftPath());
+            Files.createDirectories(runtimePath());
         } catch (Exception ignored) {
         }
     }
@@ -150,6 +162,10 @@ final class LauncherStorage {
 
     private static Path minecraftPath() {
         return rootPath().resolve(MINECRAFT_DIR);
+    }
+
+    private static Path runtimePath() {
+        return rootPath().resolve(RUNTIME_DIR);
     }
 
     private static Path configPath() {

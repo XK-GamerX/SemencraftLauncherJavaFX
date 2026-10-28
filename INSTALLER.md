@@ -60,6 +60,13 @@ All artifacts are written under:
 
 You must install WiX Toolset v3 (which provides `candle.exe` and `light.exe`) for MSI packaging.
 
+## Java 21 for end users
+
+- The MSI/app-image generated with `jpackage` should already bundle the Java 21 runtime used by the launcher.
+- For a normal end user install, this is the safest path because it avoids extra prerequisite errors.
+- If you run the launcher manually outside the packaged MSI/app-image and Java 21 is missing, the launcher now offers the Oracle MSI fallback:
+  - `https://download.oracle.com/java/21/latest/jdk-21_windows-x64_bin.msi`
+
 If WiX is not installed yet, you can still ship:
 
 - `packageLauncherAppImage` (portable folder), or

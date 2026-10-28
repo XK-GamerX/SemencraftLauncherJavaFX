@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.security.MessageDigest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,12 +51,19 @@ final class ModpackManager {
 
     private static final String CATALOG_DIR_NAME = "SemencraftModpacks";
     private static final String PROFILE_FILE_NAME = "modpack-profile.json";
+    private static final String RESOURCEPACK_PROFILE_FILE_NAME = "resourcepack-profile.json";
     private static final String OPTIONS_PATCH_FILE = "OptionsPatch/options.txt";
     private static final String GITHUB_OWNER = "XK-GamerX";
     private static final String GITHUB_REPO = "SemencraftModpacks";
     private static final String GITHUB_BRANCH = "main";
     private static final String GITHUB_API_COMMIT_URL = "https://api.github.com/repos/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/commits/" + GITHUB_BRANCH;
     private static final String GITHUB_ZIP_URL = "https://codeload.github.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/zip/refs/heads/" + GITHUB_BRANCH;
+    private static final String GITHUB_LFS_MEDIA_BASE_URL = "https://media.githubusercontent.com/media/"
+            + GITHUB_OWNER + "/" + GITHUB_REPO + "/" + GITHUB_BRANCH + "/";
+    private static final String GIT_LFS_POINTER_HEADER = "version https://git-lfs.github.com/spec/v1";
+    private static final Pattern GIT_LFS_OID = Pattern.compile("(?m)^oid\\s+sha256:([0-9a-fA-F]{64})\\s*$");
+    private static final Pattern GIT_LFS_SIZE = Pattern.compile("(?m)^size\\s+(\\d+)\\s*$");
+    private static final long MAX_LFS_POINTER_BYTES = 8_192L;
     private static final String GITHUB_CACHE_DIR_NAME = "modpacks-github-cache";
     private static final String GITHUB_STATE_FILE = "github-state.json";
     private static final long GITHUB_SYNC_MIN_INTERVAL_MS = 120_000L;
@@ -76,6 +85,7 @@ final class ModpackManager {
             EntryType type,
             String section,
             String displayName,
+            String description,
             String fileName,
             Path sourcePath,
             byte[] iconBytes
@@ -85,6 +95,7 @@ final class ModpackManager {
             type = type == null ? EntryType.MOD : type;
             section = section == null || section.isBlank() ? "General" : section.trim();
             displayName = displayName == null || displayName.isBlank() ? fileName : displayName.trim();
+            description = description == null ? "" : description.trim();
             fileName = fileName == null ? "" : fileName;
             sourcePath = sourcePath == null ? Path.of(".") : sourcePath;
             iconBytes = iconBytes == null ? null : iconBytes.clone();
@@ -200,6 +211,7 @@ final class ModpackManager {
                                                 EntryType.MOD,
                                                 sectionName,
                                                 readModName(modFile),
+                                                "",
                                                 modFile.getFileName().toString(),
                                                 modFile,
                                                 readModIcon(modFile)
@@ -221,6 +233,7 @@ final class ModpackManager {
                                 EntryType.RESOURCEPACK,
                                 SECTION_RESOURCEPACKS,
                                 readResourcepackName(packFile),
+                                readResourcepackDescription(packFile),
                                 packFile.getFileName().toString(),
                                 packFile,
                                 readResourcepackIcon(packFile)
@@ -285,6 +298,9 @@ final class ModpackManager {
             if (!force
                     && isValidCatalogRoot(contentPath)
                     && (now - lastGithubSyncAttemptMs) < GITHUB_SYNC_MIN_INTERVAL_MS) {
+                // A cached GitHub archive can still contain Git LFS pointer files.
+                // Hydrate them even when the repository SHA did not change.
+                hydrateGithubLfsPointers(contentPath);
                 return;
             }
             lastGithubSyncAttemptMs = now;
@@ -295,6 +311,7 @@ final class ModpackManager {
             }
             String localSha = readCachedGithubSha();
             if (!force && remoteSha.equalsIgnoreCase(localSha) && isValidCatalogRoot(contentPath)) {
+                hydrateGithubLfsPointers(contentPath);
                 return;
             }
 
@@ -303,6 +320,7 @@ final class ModpackManager {
                 deleteDirectoryRecursive(extracted);
                 throw new IOException("El repo descargado no contiene la estructura esperada de SemencraftModpacks.");
             }
+            hydrateGithubLfsPointers(extracted);
             replaceDirectory(extracted, contentPath);
             writeGithubState(remoteSha);
         }
@@ -396,6 +414,192 @@ final class ModpackManager {
             }
             throw new IOException("No se pudo descargar/extrair el repo de modpacks: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * GitHub's codeload ZIP archives may contain Git LFS pointer text instead of
+     * the real binary. This is especially important for large .jar files such as
+     * watermedia_binaries. Resolve every pointer before the catalog is used.
+     */
+    private void hydrateGithubLfsPointers(Path catalogRoot) throws IOException {
+        if (catalogRoot == null || !Files.isDirectory(catalogRoot)) {
+            return;
+        }
+
+        List<Path> files;
+        try (Stream<Path> walk = Files.walk(catalogRoot)) {
+            files = walk.filter(Files::isRegularFile).toList();
+        }
+
+        for (Path file : files) {
+            LfsPointer pointer = readGitLfsPointer(file);
+            if (pointer == null) {
+                continue;
+            }
+            Path relative = catalogRoot.relativize(file);
+            downloadGithubLfsObject(relative, file, pointer);
+        }
+    }
+
+    private LfsPointer readGitLfsPointer(Path file) {
+        try {
+            long fileSize = Files.size(file);
+            if (fileSize <= 0L || fileSize > MAX_LFS_POINTER_BYTES) {
+                return null;
+            }
+
+            String pointerText = Files.readString(file, StandardCharsets.UTF_8);
+            if (!pointerText.startsWith(GIT_LFS_POINTER_HEADER)) {
+                return null;
+            }
+
+            Matcher oidMatcher = GIT_LFS_OID.matcher(pointerText);
+            Matcher sizeMatcher = GIT_LFS_SIZE.matcher(pointerText);
+            if (!oidMatcher.find() || !sizeMatcher.find()) {
+                return null;
+            }
+
+            long expectedSize = Long.parseLong(sizeMatcher.group(1));
+            if (expectedSize <= 0L) {
+                return null;
+            }
+            return new LfsPointer(oidMatcher.group(1).toLowerCase(Locale.ROOT), expectedSize);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void downloadGithubLfsObject(Path relativePath, Path destination, LfsPointer pointer) throws IOException {
+        String relativeUrl = encodeGithubPath(relativePath);
+        URI uri = URI.create(GITHUB_LFS_MEDIA_BASE_URL + relativeUrl);
+        Path tempFile = destination.resolveSibling(destination.getFileName() + ".lfs-" + UUID.randomUUID() + ".tmp");
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .header("User-Agent", "SemencraftLauncher")
+                .timeout(Duration.ofMinutes(10))
+                .GET()
+                .build();
+
+        try {
+            HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IOException("GitHub LFS devolvio HTTP " + response.statusCode() + " para " + relativePath);
+            }
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long downloaded = 0L;
+            try (InputStream input = response.body();
+                 OutputStream output = Files.newOutputStream(
+                         tempFile,
+                         StandardOpenOption.CREATE,
+                         StandardOpenOption.TRUNCATE_EXISTING,
+                         StandardOpenOption.WRITE
+                 )) {
+                byte[] buffer = new byte[128 * 1024];
+                int read;
+                while ((read = input.read(buffer)) >= 0) {
+                    if (read == 0) {
+                        continue;
+                    }
+                    output.write(buffer, 0, read);
+                    digest.update(buffer, 0, read);
+                    downloaded += read;
+                }
+            }
+
+            if (downloaded != pointer.size()) {
+                throw new IOException(
+                        "Descarga Git LFS incompleta para " + relativePath
+                                + ": esperados " + pointer.size() + " bytes, recibidos " + downloaded
+                );
+            }
+
+            String actualSha = toHex(digest.digest());
+            if (!actualSha.equalsIgnoreCase(pointer.sha256())) {
+                throw new IOException("SHA-256 invalido al descargar Git LFS: " + relativePath);
+            }
+
+            try {
+                Files.move(tempFile, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (Exception atomicMoveFailed) {
+                Files.move(tempFile, destination, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Descarga Git LFS interrumpida: " + relativePath, ex);
+        } catch (Exception ex) {
+            if (ex instanceof IOException ioEx) {
+                throw ioEx;
+            }
+            throw new IOException("No se pudo descargar el objeto Git LFS " + relativePath + ": " + ex.getMessage(), ex);
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
+    }
+
+    private static String encodeGithubPath(Path path) {
+        StringBuilder encoded = new StringBuilder();
+        for (Path segment : path) {
+            if (!encoded.isEmpty()) {
+                encoded.append('/');
+            }
+            encoded.append(URLEncoder.encode(segment.toString(), StandardCharsets.UTF_8).replace("+", "%20"));
+        }
+        return encoded.toString();
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder result = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            result.append(Character.forDigit((value >>> 4) & 0x0F, 16));
+            result.append(Character.forDigit(value & 0x0F, 16));
+        }
+        return result.toString();
+    }
+
+    private static void validateJarFile(Path jarPath) throws IOException {
+        if (jarPath == null || !Files.isRegularFile(jarPath)) {
+            throw new IOException("Falta un mod requerido: " + jarPath);
+        }
+        LfsPointer pointer = readGitLfsPointerStatic(jarPath);
+        if (pointer != null) {
+            throw new IOException(
+                    "El mod " + jarPath.getFileName()
+                            + " sigue siendo un puntero de Git LFS y no un JAR real."
+            );
+        }
+        try (ZipFile ignored = new ZipFile(jarPath.toFile())) {
+            // Opening the ZIP is enough to verify the central directory exists.
+        } catch (Exception ex) {
+            throw new IOException("El mod descargado esta corrupto o incompleto: " + jarPath.getFileName(), ex);
+        }
+    }
+
+    private static LfsPointer readGitLfsPointerStatic(Path file) {
+        try {
+            long fileSize = Files.size(file);
+            if (fileSize <= 0L || fileSize > MAX_LFS_POINTER_BYTES) {
+                return null;
+            }
+            String pointerText = Files.readString(file, StandardCharsets.UTF_8);
+            if (!pointerText.startsWith(GIT_LFS_POINTER_HEADER)) {
+                return null;
+            }
+            Matcher oidMatcher = GIT_LFS_OID.matcher(pointerText);
+            Matcher sizeMatcher = GIT_LFS_SIZE.matcher(pointerText);
+            if (!oidMatcher.find() || !sizeMatcher.find()) {
+                return null;
+            }
+            long expectedSize = Long.parseLong(sizeMatcher.group(1));
+            return expectedSize > 0L
+                    ? new LfsPointer(oidMatcher.group(1).toLowerCase(Locale.ROOT), expectedSize)
+                    : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private record LfsPointer(String sha256, long size) {
     }
 
     private void replaceDirectory(Path sourceDir, Path targetDir) throws IOException {
@@ -525,11 +729,11 @@ final class ModpackManager {
         }
         String normalized = normalizeBaseTemplate(baseTemplate);
         for (OptionalEntry entry : catalog.optionalEntries()) {
+            if (entry.type() == EntryType.RESOURCEPACK) {
+                continue;
+            }
             if (TEMPLATE_OPTIMIZED.equals(normalized)) {
                 if (entry.type() == EntryType.MOD && isOptimizedDisabledSection(entry.section())) {
-                    continue;
-                }
-                if (entry.type() == EntryType.RESOURCEPACK) {
                     continue;
                 }
             }
@@ -607,6 +811,99 @@ final class ModpackManager {
         }
     }
 
+    List<OptionalEntry> resourcepackEntries(Catalog catalog) {
+        if (catalog == null || catalog.optionalEntries().isEmpty()) {
+            return List.of();
+        }
+        List<OptionalEntry> resourcepacks = new ArrayList<>();
+        for (OptionalEntry entry : catalog.optionalEntries()) {
+            if (entry.type() == EntryType.RESOURCEPACK) {
+                resourcepacks.add(entry);
+            }
+        }
+        resourcepacks.sort((a, b) -> a.displayName().compareToIgnoreCase(b.displayName()));
+        return List.copyOf(resourcepacks);
+    }
+
+    List<String> loadAppliedResourcepackSelection(Catalog catalog, Path gameDir) {
+        List<String> fromOptions = readSelectedResourcepacksFromOptions(catalog, gameDir);
+        if (!fromOptions.isEmpty()) {
+            return fromOptions;
+        }
+        return loadSavedResourcepackSelection(catalog);
+    }
+
+    List<String> loadSavedResourcepackSelection(Catalog catalog) {
+        Path profilePath = resourcepackProfilePath();
+        if (!Files.exists(profilePath)) {
+            return List.of();
+        }
+        try {
+            JsonObject root = JsonParser.parseString(Files.readString(profilePath, StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonArray array = root.has("selected") && root.get("selected").isJsonArray()
+                    ? root.getAsJsonArray("selected")
+                    : null;
+            if (array == null) {
+                return List.of();
+            }
+            LinkedHashSet<String> ids = new LinkedHashSet<>();
+            for (JsonElement element : array) {
+                if (element == null || !element.isJsonPrimitive()) {
+                    continue;
+                }
+                String id = element.getAsString();
+                OptionalEntry entry = catalog == null ? null : catalog.findOptionalById(id);
+                if (entry != null && entry.type() == EntryType.RESOURCEPACK) {
+                    ids.add(id);
+                }
+            }
+            return List.copyOf(ids);
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    void saveResourcepackSelection(List<String> selectedIds) {
+        try {
+            Files.createDirectories(LauncherStorage.launcherDirectory());
+            JsonObject root = new JsonObject();
+            JsonArray selected = new JsonArray();
+            if (selectedIds != null) {
+                for (String id : selectedIds) {
+                    if (id != null && !id.isBlank()) {
+                        selected.add(id);
+                    }
+                }
+            }
+            root.add("selected", selected);
+            Files.writeString(
+                    resourcepackProfilePath(),
+                    root.toString(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception ignored) {
+        }
+    }
+
+    void applyResourcepackSelectionToGame(Catalog catalog, Path gameDir, List<String> orderedSelectedIds) throws IOException {
+        Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(gameDir, "gameDir");
+
+        Files.createDirectories(gameDir);
+        Path resourcepacksDir = gameDir.resolve("resourcepacks");
+        Files.createDirectories(resourcepacksDir);
+        unlockTreeForSync(resourcepacksDir);
+
+        Map<Path, String> sourceHashCache = new LinkedHashMap<>();
+        Set<String> expectedResourcepacks = new LinkedHashSet<>();
+        syncAllManagedResourcepacks(catalog, resourcepacksDir, expectedResourcepacks, sourceHashCache);
+        removeUnexpectedFiles(resourcepacksDir, expectedResourcepacks);
+        applyLockHints(resourcepacksDir, expectedResourcepacks);
+        writeSelectedResourcepacks(catalog, gameDir, orderedSelectedIds);
+    }
+
     SyncResult synchronizeForLaunch(Catalog catalog, Selection selection, Path gameDir) throws IOException {
         Objects.requireNonNull(catalog, "catalog");
         Objects.requireNonNull(selection, "selection");
@@ -631,6 +928,9 @@ final class ModpackManager {
 
         for (RequiredEntry required : catalog.requiredEntries()) {
             Path relative = required.targetRelativePath().normalize();
+            if (relative.toString().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                validateJarFile(required.sourcePath());
+            }
             Path target = gameDir.resolve(relative).normalize();
             if (!target.startsWith(gameDir.toAbsolutePath().normalize())) {
                 continue;
@@ -643,12 +943,15 @@ final class ModpackManager {
 
         for (String enabledId : selection.enabledOptionalIds()) {
             OptionalEntry entry = catalog.findOptionalById(enabledId);
-            if (entry == null) {
+            if (entry == null || entry.type() != EntryType.MOD) {
                 continue;
             }
             Path relativeTarget = entry.type() == EntryType.MOD
                     ? Path.of("mods").resolve(entry.fileName())
                     : Path.of("resourcepacks").resolve(entry.fileName());
+            if (entry.type() == EntryType.MOD) {
+                validateJarFile(entry.sourcePath());
+            }
             Path target = gameDir.resolve(relativeTarget).normalize();
             if (!target.startsWith(gameDir.toAbsolutePath().normalize())) {
                 continue;
@@ -659,9 +962,12 @@ final class ModpackManager {
             rememberManagedTarget(relativeTarget, expectedMods, expectedResourcepacks);
         }
 
+        copiedFiles += syncAllManagedResourcepacks(catalog, resourcepacksDir, expectedResourcepacks, sourceHashCache);
+
         int removedMods = removeUnexpectedFiles(modsDir, expectedMods);
         int removedResourcepacks = removeUnexpectedFiles(resourcepacksDir, expectedResourcepacks);
         copiedFiles += applyOptionsPatchIfNeeded(catalog, selection, gameDir);
+        copiedFiles += writeSelectedResourcepacks(catalog, gameDir, loadAppliedResourcepackSelection(catalog, gameDir));
         applyLockHints(modsDir, expectedMods);
         applyLockHints(resourcepacksDir, expectedResourcepacks);
 
@@ -845,42 +1151,30 @@ final class ModpackManager {
     }
 
     private static String readResourcepackName(Path packPath) {
-        String fallback = stripExtension(packPath.getFileName().toString());
-        String lower = packPath.getFileName().toString().toLowerCase(Locale.ROOT);
+        return packPath == null ? "" : stripExtension(packPath.getFileName().toString());
+    }
+
+    private static String readResourcepackDescription(Path packPath) {
+        String lower = packPath == null ? "" : packPath.getFileName().toString().toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".zip")) {
-            return fallback;
+            return "";
         }
         try (ZipFile zip = new ZipFile(packPath.toFile())) {
             ZipEntry mcmeta = zip.getEntry("pack.mcmeta");
             if (mcmeta == null) {
-                return fallback;
+                return "";
             }
             try (InputStream in = zip.getInputStream(mcmeta)) {
                 JsonObject root = JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
                 JsonObject packObj = root.has("pack") && root.get("pack").isJsonObject() ? root.getAsJsonObject("pack") : null;
                 if (packObj == null || !packObj.has("description")) {
-                    return fallback;
+                    return "";
                 }
-                JsonElement description = packObj.get("description");
-                if (description.isJsonPrimitive()) {
-                    String text = description.getAsString();
-                    return text == null || text.isBlank() ? fallback : text.trim();
-                }
-                if (description.isJsonObject()) {
-                    JsonObject obj = description.getAsJsonObject();
-                    String text = optionalString(obj, "text", null);
-                    if (text != null && !text.isBlank()) {
-                        return text.trim();
-                    }
-                    String translate = optionalString(obj, "translate", null);
-                    if (translate != null && !translate.isBlank()) {
-                        return translate.trim();
-                    }
-                }
+                return flattenDescription(packObj.get("description"));
             }
         } catch (Exception ignored) {
+            return "";
         }
-        return fallback;
     }
 
     private static byte[] readResourcepackIcon(Path packPath) {
@@ -1000,6 +1294,116 @@ final class ModpackManager {
             return null;
         }
         return line.substring(0, idx).trim();
+    }
+
+    private static int syncAllManagedResourcepacks(
+            Catalog catalog,
+            Path resourcepacksDir,
+            Set<String> expectedResourcepacks,
+            Map<Path, String> sourceHashCache
+    ) throws IOException {
+        if (catalog == null || resourcepacksDir == null) {
+            return 0;
+        }
+        int copiedFiles = 0;
+        for (OptionalEntry entry : catalog.optionalEntries()) {
+            if (entry.type() != EntryType.RESOURCEPACK) {
+                continue;
+            }
+            Path relativeTarget = Path.of("resourcepacks").resolve(entry.fileName());
+            Path target = resourcepacksDir.resolve(entry.fileName()).normalize();
+            if (!target.startsWith(resourcepacksDir.toAbsolutePath().normalize())) {
+                continue;
+            }
+            if (copyFileIfChanged(entry.sourcePath(), target, sourceHashCache)) {
+                copiedFiles++;
+            }
+            rememberManagedTarget(relativeTarget, Set.of(), expectedResourcepacks);
+        }
+        return copiedFiles;
+    }
+
+    private static int writeSelectedResourcepacks(Catalog catalog, Path gameDir, List<String> orderedSelectedIds) throws IOException {
+        Path optionsPath = gameDir.resolve("options.txt");
+        List<String> existing = Files.exists(optionsPath)
+                ? Files.readAllLines(optionsPath, StandardCharsets.UTF_8)
+                : List.of();
+        List<String> merged = mergeOptions(existing, List.of(buildResourcepacksLine(catalog, orderedSelectedIds)));
+        if (!existing.equals(merged)) {
+            Files.write(
+                    optionsPath,
+                    merged,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            return 1;
+        }
+        return 0;
+    }
+
+    private static String buildResourcepacksLine(Catalog catalog, List<String> orderedSelectedIds) {
+        JsonArray selected = new JsonArray();
+        selected.add("vanilla");
+        selected.add("fabric");
+        if (catalog != null && orderedSelectedIds != null) {
+            LinkedHashSet<String> used = new LinkedHashSet<>();
+            for (String id : orderedSelectedIds) {
+                if (id == null || id.isBlank() || !used.add(id)) {
+                    continue;
+                }
+                OptionalEntry entry = catalog.findOptionalById(id);
+                if (entry == null || entry.type() != EntryType.RESOURCEPACK || entry.fileName().isBlank()) {
+                    continue;
+                }
+                selected.add("file/" + entry.fileName());
+            }
+        }
+        return "resourcePacks:" + selected;
+    }
+
+    private List<String> readSelectedResourcepacksFromOptions(Catalog catalog, Path gameDir) {
+        if (catalog == null || gameDir == null) {
+            return List.of();
+        }
+        Path optionsPath = gameDir.resolve("options.txt");
+        if (!Files.exists(optionsPath)) {
+            return List.of();
+        }
+        try {
+            List<String> lines = Files.readAllLines(optionsPath, StandardCharsets.UTF_8);
+            for (String line : lines) {
+                if (!line.startsWith("resourcePacks:")) {
+                    continue;
+                }
+                int idx = line.indexOf(':');
+                if (idx < 0 || idx + 1 >= line.length()) {
+                    continue;
+                }
+                JsonArray array = JsonParser.parseString(line.substring(idx + 1)).getAsJsonArray();
+                LinkedHashSet<String> ordered = new LinkedHashSet<>();
+                for (JsonElement element : array) {
+                    if (element == null || !element.isJsonPrimitive()) {
+                        continue;
+                    }
+                    String value = element.getAsString();
+                    if (value == null || !value.startsWith("file/")) {
+                        continue;
+                    }
+                    String fileName = value.substring("file/".length());
+                    for (OptionalEntry entry : catalog.optionalEntries()) {
+                        if (entry.type() == EntryType.RESOURCEPACK && fileName.equals(entry.fileName())) {
+                            ordered.add(entry.id());
+                            break;
+                        }
+                    }
+                }
+                return List.copyOf(ordered);
+            }
+        } catch (Exception ignored) {
+            return List.of();
+        }
+        return List.of();
     }
 
     private static void rememberManagedTarget(Path relativeTarget, Set<String> expectedMods, Set<String> expectedResourcepacks) {
@@ -1230,6 +1634,10 @@ final class ModpackManager {
         return LauncherStorage.launcherDirectory().resolve(PROFILE_FILE_NAME);
     }
 
+    private Path resourcepackProfilePath() {
+        return LauncherStorage.launcherDirectory().resolve(RESOURCEPACK_PROFILE_FILE_NAME);
+    }
+
     private Path githubCacheRootPath() {
         return LauncherStorage.launcherDirectory().resolve(GITHUB_CACHE_DIR_NAME);
     }
@@ -1251,6 +1659,51 @@ final class ModpackManager {
         } catch (Exception ignored) {
             return fallback;
         }
+    }
+
+    private static String flattenDescription(JsonElement description) {
+        if (description == null || description.isJsonNull()) {
+            return "";
+        }
+        if (description.isJsonPrimitive()) {
+            String text = description.getAsString();
+            return text == null ? "" : text.trim();
+        }
+        if (description.isJsonObject()) {
+            JsonObject obj = description.getAsJsonObject();
+            StringBuilder builder = new StringBuilder();
+            appendDescriptionPart(builder, optionalString(obj, "text", ""));
+            appendDescriptionPart(builder, optionalString(obj, "translate", ""));
+            JsonElement extra = obj.get("extra");
+            if (extra != null && extra.isJsonArray()) {
+                for (JsonElement item : extra.getAsJsonArray()) {
+                    appendDescriptionPart(builder, flattenDescription(item));
+                }
+            }
+            return builder.toString().trim();
+        }
+        if (description.isJsonArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (JsonElement item : description.getAsJsonArray()) {
+                appendDescriptionPart(builder, flattenDescription(item));
+            }
+            return builder.toString().trim();
+        }
+        return "";
+    }
+
+    private static void appendDescriptionPart(StringBuilder builder, String text) {
+        if (builder == null || text == null || text.isBlank()) {
+            return;
+        }
+        text = text.replaceAll("§.", "").trim();
+        if (text.isBlank()) {
+            return;
+        }
+        if (!builder.isEmpty()) {
+            builder.append(' ');
+        }
+        builder.append(text);
     }
 
     private static String stripExtension(String name) {
