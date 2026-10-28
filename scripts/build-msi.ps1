@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.2.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,7 +46,12 @@ $Version = $normalizedVersion
 
 Push-Location $projectRoot
 try {
-    & ".\gradlew.bat" --no-daemon packageLauncherInstaller -PinstallerVersion=$Version
+    $gradleArgs = @(
+        "--no-daemon"
+        "packageLauncherInstaller"
+        "-PinstallerVersion=$Version"
+    )
+    & ".\gradlew.bat" @gradleArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Gradle termino con codigo $LASTEXITCODE"
     }
@@ -66,6 +71,8 @@ if ($null -eq $msi) {
 Write-Host ""
 Write-Host "MSI generado:"
 Write-Host $msi.FullName
+Write-Host ""
+Write-Host "La runtime Java 21 del launcher deberia quedar incluida dentro del MSI generado por jpackage."
 Write-Host ""
 Write-Host "Nota: Los modpacks se actualizan desde GitHub en runtime (no hace falta rebuild por cada cambio de mod)."
 Write-Host ""

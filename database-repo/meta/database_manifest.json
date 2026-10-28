@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "databaseName": "SemencraftDatabase",
+  "managedBy": "Semencraft Launcher",
+  "paths": {
+    "discordUsers": "discord/discord_users.json",
+    "users": "users/<minecraft_username>_credentials.json",
+    "roleRequests": "role_requests/<minecraft_username>.json",
+    "teams": "teams/<team_id>.json",
+    "notifications": "notifications/<minecraft_username>.json"
+  },
+  "roleName": "Registrado"
+}

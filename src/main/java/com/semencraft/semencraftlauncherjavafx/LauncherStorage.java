@@ -18,10 +18,12 @@ final class LauncherStorage {
     private static final String APP_DIR = ".semencraft";
     private static final String LAUNCHER_DIR = "launcher";
     private static final String MINECRAFT_DIR = "minecraft";
+    private static final String RUNTIME_DIR = "runtime";
     private static final String CREDENTIALS_FILE = "credentials.dat";
     private static final String CONFIG_FILE = "config.json";
     private static final String MACHINE_SECRET = "SemencraftLauncher::v1::sealed";
     private static final SecureRandom RNG = new SecureRandom();
+    private static volatile boolean directoriesReady;
 
     private LauncherStorage() {
     }
@@ -90,6 +92,14 @@ final class LauncherStorage {
         }
     }
 
+    /** Sin "Recordarme": se borra la sesion guardada para que el proximo inicio pida login. */
+    static void forgetCredentials() {
+        try {
+            Files.deleteIfExists(credentialsPath());
+        } catch (Exception ignored) {
+        }
+    }
+
     static String loadSavedUsername() {
         ensureDirectoriesOnly();
         Path path = credentialsPath();
@@ -127,10 +137,25 @@ final class LauncherStorage {
         return minecraftPath();
     }
 
+    /**
+     * Carpeta donde se instala (una sola vez) el runtime de Java portable
+     * que el launcher descarga automaticamente cuando no encuentra un
+     * Java 21+ en el sistema. Ej: %APPDATA%/.semencraft/runtime/jre-21
+     */
+    static Path runtimeDirectory() {
+        ensureDirectoriesOnly();
+        return runtimePath();
+    }
+
     private static void ensureDirectoriesOnly() {
+        if (directoriesReady && Files.isDirectory(launcherPath())) {
+            return;
+        }
         try {
             Files.createDirectories(launcherPath());
             Files.createDirectories(minecraftPath());
+            Files.createDirectories(runtimePath());
+            directoriesReady = true;
         } catch (Exception ignored) {
         }
     }
@@ -150,6 +175,10 @@ final class LauncherStorage {
 
     private static Path minecraftPath() {
         return rootPath().resolve(MINECRAFT_DIR);
+    }
+
+    private static Path runtimePath() {
+        return rootPath().resolve(RUNTIME_DIR);
     }
 
     private static Path configPath() {
@@ -251,6 +280,8 @@ final class LauncherStorage {
         private final boolean borderlessWindow;
         private final boolean closeLauncherOnStart;
         private final boolean discordRpcEnabled;
+        private final boolean notificationSound;
+        private final boolean performanceMode;
 
         LauncherConfig(
                 String modpack,
@@ -259,7 +290,9 @@ final class LauncherStorage {
                 String windowResolution,
                 boolean borderlessWindow,
                 boolean closeLauncherOnStart,
-                boolean discordRpcEnabled
+                boolean discordRpcEnabled,
+                boolean notificationSound,
+                boolean performanceMode
         ) {
             this.modpack = normalizeTemplate(modpack);
             this.ramGb = Math.max(2, Math.min(16, ramGb));
@@ -268,10 +301,12 @@ final class LauncherStorage {
             this.borderlessWindow = borderlessWindow;
             this.closeLauncherOnStart = closeLauncherOnStart;
             this.discordRpcEnabled = discordRpcEnabled;
+            this.notificationSound = notificationSound;
+            this.performanceMode = performanceMode;
         }
 
         static LauncherConfig defaults() {
-            return new LauncherConfig("Normal", 6, "Ventana", "1280x720", false, false, true);
+            return new LauncherConfig("Normal", 6, "Ventana", "1280x720", false, false, true, true, false);
         }
 
         private static String normalizeTemplate(String raw) {
@@ -316,6 +351,14 @@ final class LauncherStorage {
             return discordRpcEnabled;
         }
 
+        boolean notificationSound() {
+            return notificationSound;
+        }
+
+        boolean performanceMode() {
+            return performanceMode;
+        }
+
         String toJson() {
             return "{\n" +
                     "  \"modpack\": \"" + jsonEscape(modpack) + "\",\n" +
@@ -324,7 +367,9 @@ final class LauncherStorage {
                     "  \"windowResolution\": \"" + jsonEscape(windowResolution) + "\",\n" +
                     "  \"borderlessWindow\": " + borderlessWindow + ",\n" +
                     "  \"closeLauncherOnStart\": " + closeLauncherOnStart + ",\n" +
-                    "  \"discordRpcEnabled\": " + discordRpcEnabled + "\n" +
+                    "  \"discordRpcEnabled\": " + discordRpcEnabled + ",\n" +
+                    "  \"notificationSound\": " + notificationSound + ",\n" +
+                    "  \"performanceMode\": " + performanceMode + "\n" +
                     "}\n";
         }
 
@@ -339,7 +384,9 @@ final class LauncherStorage {
                     extractString(json, "windowResolution", "1280x720"),
                     extractBoolean(json, "borderlessWindow", false),
                     extractBoolean(json, "closeLauncherOnStart", false),
-                    extractBoolean(json, "discordRpcEnabled", true)
+                    extractBoolean(json, "discordRpcEnabled", true),
+                    extractBoolean(json, "notificationSound", true),
+                    extractBoolean(json, "performanceMode", false)
             );
         }
 
@@ -355,6 +402,8 @@ final class LauncherStorage {
                     && borderlessWindow == other.borderlessWindow
                     && closeLauncherOnStart == other.closeLauncherOnStart
                     && discordRpcEnabled == other.discordRpcEnabled
+                    && notificationSound == other.notificationSound
+                    && performanceMode == other.performanceMode
                     && modpack.equals(other.modpack)
                     && launchMode.equals(other.launchMode)
                     && windowResolution.equals(other.windowResolution);
@@ -369,6 +418,8 @@ final class LauncherStorage {
             result = 31 * result + Boolean.hashCode(borderlessWindow);
             result = 31 * result + Boolean.hashCode(closeLauncherOnStart);
             result = 31 * result + Boolean.hashCode(discordRpcEnabled);
+            result = 31 * result + Boolean.hashCode(notificationSound);
+            result = 31 * result + Boolean.hashCode(performanceMode);
             return result;
         }
     }

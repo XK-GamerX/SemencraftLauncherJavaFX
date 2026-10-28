@@ -1,99 +1,137 @@
+/* =====================================================================
+   Semencraft Launcher - tema oscuro plano
+   Tipografia Cera Pro (CeraPro-Medium / -Bold / -Black, cargadas en MainApp).
+   Un solo acento (ambar del logo) para acciones; violeta solo como secundario.
+   ===================================================================== */
+
 .root {
+    -sc-bg: #0b0a12;
+    -sc-surface: rgba(255, 255, 255, 0.035);
+    -sc-surface-solid: #15131e;
+    -sc-surface-hover: rgba(255, 255, 255, 0.065);
+    -sc-border: rgba(255, 255, 255, 0.06);
+    -sc-border-strong: rgba(255, 255, 255, 0.13);
+    -sc-text: #f3f1f8;
+    -sc-text-2: #aaa4bd;
+    -sc-text-3: #726c88;
+    -sc-accent: #ffb547;
+    -sc-accent-hover: #ffc56e;
+    -sc-accent-soft: rgba(255, 181, 71, 0.14);
+    -sc-accent-text: #241404;
+    -sc-violet: #8b6cff;
+    -sc-violet-2: #a990ff;
+    -sc-violet-soft: rgba(139, 108, 255, 0.15);
+    -sc-green: #3dd68c;
+    -sc-red: #ff5c6c;
+    -sc-yellow: #ffc145;
+
+    -fx-font-family: "CeraPro-Medium";
     -fx-background-color: transparent;
+    -fx-text-fill: -sc-text;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-accent: -sc-accent;
 }
 
 .launcher-root {
-    -fx-background-color: #0a0f16;
+    -fx-background-color: -sc-bg;
 }
 
+.label {
+    -fx-text-fill: -sc-text;
+}
+
+/* ---------- Fondo ---------- */
+
 .app-background {
-    -fx-background-color: #0b1018;
+    -fx-background-color: -sc-bg;
     -fx-background-image: url('assets/bg.png');
     -fx-background-size: cover;
     -fx-background-position: center center;
     -fx-background-repeat: no-repeat;
 }
 
+.app-background-tint {
+    -fx-background-color:
+            linear-gradient(to bottom, rgba(11, 10, 18, 0.55) 0%, rgba(11, 10, 18, 0.62) 55%, rgba(11, 10, 18, 0.92) 100%),
+            linear-gradient(to right, rgba(11, 10, 18, 0.35) 0%, rgba(11, 10, 18, 0.0) 30%, rgba(11, 10, 18, 0.0) 70%, rgba(11, 10, 18, 0.35) 100%);
+}
+
+.center-vignette {
+    -fx-background-color: transparent;
+}
+
+/* ---------- Barra de titulo ---------- */
+
 .title-bar {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(13, 18, 28, 0.96) 0%,
-            rgba(9, 14, 22, 0.96) 100%
-    );
-    -fx-border-color: transparent transparent rgba(132, 153, 189, 0.26) transparent;
-    -fx-border-width: 0 0 1 0;
-    -fx-pref-height: 38px;
-    -fx-min-height: 38px;
-    -fx-max-height: 38px;
-    -fx-padding: 0 8 0 12;
+    -fx-background-color: rgba(9, 8, 14, 0.98);
+    -fx-pref-height: 36px;
+    -fx-min-height: 36px;
+    -fx-max-height: 36px;
+    -fx-padding: 0 4 0 14;
 }
 
 .title-label {
-    -fx-text-fill: rgba(221, 232, 248, 0.92);
-    -fx-font-size: 0.96em;
-    -fx-font-weight: bold;
+    -fx-text-fill: -sc-text-3;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.82em;
 }
 
-.win-btn,
-.win-btn-close {
-    -fx-background-color: rgba(164, 186, 220, 0.10);
-    -fx-text-fill: rgba(224, 235, 255, 0.95);
-    -fx-font-size: 1.04em;
-    -fx-font-weight: bold;
-    -fx-pref-width: 38px;
-    -fx-min-width: 38px;
-    -fx-max-width: 38px;
+.title-version-chip {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.74em;
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 4;
+    -fx-padding: 1 8 1 8;
+}
+
+.win-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-pref-width: 40px;
+    -fx-min-width: 40px;
+    -fx-max-width: 40px;
     -fx-pref-height: 28px;
     -fx-min-height: 28px;
     -fx-max-height: 28px;
-    -fx-background-radius: 8;
-    -fx-border-color: rgba(170, 190, 224, 0.34);
-    -fx-border-radius: 8;
-    -fx-border-width: 1;
     -fx-padding: 0;
+    -fx-cursor: hand;
+}
+
+.win-btn .win-icon {
+    -fx-fill: -sc-text-3;
 }
 
 .win-btn:hover {
-    -fx-background-color: rgba(130, 168, 235, 0.36);
-    -fx-text-fill: #ffffff;
-    -fx-border-color: rgba(188, 212, 255, 0.65);
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.win-btn:hover .win-icon {
+    -fx-fill: white;
 }
 
 .win-btn-close:hover {
-    -fx-background-color: rgba(214, 66, 66, 0.82);
-    -fx-text-fill: white;
-    -fx-border-color: rgba(255, 184, 184, 0.82);
+    -fx-background-color: #e5484d;
 }
+
+/* ---------- Barra lateral de iconos ---------- */
 
 .sidebar-glass {
     -fx-background-color: transparent;
-    -fx-border-color: transparent;
-    -fx-border-width: 0;
 }
 
 .sidebar-blur-layer {
-    -fx-background-color: #05080d;
-    -fx-background-image: url('assets/bg.png');
-    -fx-background-size: cover;
-    -fx-background-position: center center;
-    -fx-background-repeat: no-repeat;
-    -fx-opacity: 0.94;
-}
-
-.sidebar-dark-overlay {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(9, 14, 22, 0.84) 0%,
-            rgba(8, 12, 20, 0.94) 55%,
-            rgba(6, 10, 16, 0.98) 100%
-    );
-    -fx-border-color: transparent;
-    -fx-border-width: 0;
+    -fx-background-color: rgba(9, 8, 14, 0.92);
+    -fx-border-color: transparent -sc-border transparent transparent;
+    -fx-border-width: 0 1 0 0;
 }
 
 .sidebar-scroll,
 .login-scroll,
-.settings-scroll {
+.settings-scroll,
+.skin-scroll,
+.team-scroll,
+.notifications-scroll {
     -fx-background-color: transparent;
     -fx-background: transparent;
     -fx-border-color: transparent;
@@ -103,305 +141,883 @@
 .sidebar-scroll > .viewport,
 .login-scroll > .viewport,
 .settings-scroll > .viewport,
+.skin-scroll > .viewport,
+.team-scroll > .viewport,
+.notifications-scroll > .viewport,
 .sidebar-scroll > .corner,
 .login-scroll > .corner,
-.settings-scroll > .corner {
+.settings-scroll > .corner,
+.skin-scroll > .corner,
+.team-scroll > .corner,
+.notifications-scroll > .corner {
     -fx-background-color: transparent;
 }
 
-.sidebar-scroll .scroll-bar:vertical,
-.login-scroll .scroll-bar:vertical {
+.sidebar {
     -fx-background-color: transparent;
+    -fx-padding: 18 0 18 0;
+}
+
+.rail-logo {
+    -fx-padding: 4 0 26 0;
+}
+
+.nav-box {
+    -fx-background-color: transparent;
+}
+
+.nav-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 12;
+    -fx-pref-width: 44px;
+    -fx-pref-height: 44px;
+    -fx-min-width: 44px;
+    -fx-min-height: 44px;
+    -fx-max-width: 44px;
+    -fx-max-height: 44px;
     -fx-padding: 0;
-    -fx-opacity: 0;
-    -fx-max-width: 0;
-    -fx-pref-width: 0;
-    -fx-min-width: 0;
+    -fx-cursor: hand;
+}
+
+.nav-btn .nav-icon {
+    -fx-fill: -sc-text-3;
+}
+
+.nav-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+}
+
+.nav-btn:hover .nav-icon {
+    -fx-fill: -sc-text;
+}
+
+.nav-btn-active,
+.nav-btn-active:hover {
+    -fx-background-color: -sc-accent-soft;
+}
+
+.nav-btn-active .nav-icon,
+.nav-btn-active:hover .nav-icon {
+    -fx-fill: -sc-accent;
+}
+
+.status-label {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.86em;
+}
+
+/* ---------- Barra superior ---------- */
+
+.top-bar {
+    -fx-padding: 14 22 10 40;
+}
+
+.user-block {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-padding: 4 4 4 16;
+}
+
+.user-block:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+}
+
+.username-label {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.95em;
+}
+
+.user-state-dot {
+    -fx-background-color: -sc-text-3;
+    -fx-background-radius: 999;
+    -fx-min-width: 7;
+    -fx-min-height: 7;
+    -fx-max-width: 7;
+    -fx-max-height: 7;
+}
+
+.user-state-dot.state-online {
+    -fx-background-color: -sc-green;
+}
+
+.user-state-dot.state-playing {
+    -fx-background-color: -sc-violet-2;
+}
+
+.user-state-label {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.78em;
+}
+
+/* ---------- Barra inferior ---------- */
+
+.bottom-bar {
+    -fx-padding: 0 22 8 30;
+    -fx-min-height: 62;
+}
+
+.version-label {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.74em;
+}
+
+/* ---------- Avatares ---------- */
+
+.minecraft-head-shell {
+    -fx-background-color: rgba(10, 9, 16, 0.94);
+    -fx-background-radius: 9;
+    -fx-border-color: transparent;
+    -fx-border-width: 2;
+    -fx-border-radius: 9;
+    -fx-padding: 3;
+}
+
+.minecraft-head-inner {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-background-radius: 5;
+}
+
+.presence-dot {
+    -fx-stroke: #12101b;
+    -fx-stroke-width: 2.4;
+}
+
+.presence-dot-online {
+    -fx-fill: #3dd68c;
+}
+
+.presence-dot-idle {
+    -fx-fill: #ffc145;
+}
+
+.presence-dot-playing {
+    -fx-fill: #8b6cff;
+}
+
+.presence-dot-offline {
+    -fx-fill: #6d6885;
+}
+
+/* ---------- Inicio ---------- */
+
+.hero {
+    -fx-padding: 0 40 40 40;
+}
+
+.hero-logo {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 30, 0.1, 0, 10);
+}
+
+.play-btn {
+    -fx-background-color: -sc-accent;
+    -fx-background-radius: 999;
+    -fx-text-fill: -sc-accent-text;
+    -fx-font-family: "CeraPro-Black";
+    -fx-font-size: 0.98em;
+    -fx-padding: 0 30 0 24;
+    -fx-pref-height: 46px;
+    -fx-min-height: 46px;
+    -fx-graphic-text-gap: 10;
+    -fx-cursor: hand;
+}
+
+.play-btn .btn-icon {
+    -fx-fill: -sc-accent-text;
+    -fx-scale-x: 0.8;
+    -fx-scale-y: 0.8;
+}
+
+.play-btn:hover {
+    -fx-background-color: -sc-accent-hover;
+    -fx-effect: none;
+}
+
+.play-btn:pressed {
+    -fx-scale-x: 0.97;
+    -fx-scale-y: 0.97;
+    -fx-effect: none;
+}
+
+.play-btn:disabled {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: -sc-text-3;
+    -fx-opacity: 1.0;
+    -fx-effect: none;
+}
+
+.play-btn:disabled .btn-icon {
+    -fx-fill: -sc-text-3;
+}
+
+.text-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.86em;
+    -fx-padding: 0 16 0 14;
+    -fx-pref-height: 46px;
+    -fx-min-height: 46px;
+    -fx-graphic-text-gap: 8;
+    -fx-cursor: hand;
+}
+
+.text-btn .btn-icon {
+    -fx-fill: -sc-text-2;
+    -fx-scale-x: 0.75;
+    -fx-scale-y: 0.75;
+}
+
+.text-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-text-fill: white;
+}
+
+.text-btn:hover .btn-icon {
+    -fx-fill: white;
+}
+
+.text-btn-small {
+    -fx-font-size: 0.76em;
+    -fx-pref-height: 32px;
+    -fx-min-height: 32px;
+    -fx-padding: 0 12 0 10;
+}
+
+/* ---------- Botones genericos ---------- */
+
+.primary-btn,
+.settings-save-btn,
+.team-action-primary {
+    -fx-background-color: -sc-accent;
+    -fx-background-radius: 999;
+    -fx-border-width: 0;
+    -fx-text-fill: -sc-accent-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.88em;
+    -fx-padding: 8 20 8 20;
+    -fx-cursor: hand;
+}
+
+.primary-btn:hover,
+.settings-save-btn:hover,
+.team-action-primary:hover {
+    -fx-background-color: -sc-accent-hover;
+}
+
+.primary-btn:pressed,
+.settings-save-btn:pressed,
+.team-action-primary:pressed {
+    -fx-scale-x: 0.97;
+    -fx-scale-y: 0.97;
+}
+
+.primary-btn:disabled,
+.settings-save-btn:disabled,
+.team-action-primary:disabled {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: -sc-text-3;
+    -fx-opacity: 1.0;
+}
+
+.secondary-btn,
+.settings-discard-btn,
+.team-action-secondary,
+.mod-page-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-radius: 999;
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.88em;
+    -fx-padding: 7 18 7 18;
+    -fx-cursor: hand;
+}
+
+.secondary-btn:hover,
+.settings-discard-btn:hover,
+.team-action-secondary:hover,
+.mod-page-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+    -fx-border-color: rgba(255, 255, 255, 0.22);
+}
+
+.secondary-btn:disabled,
+.settings-discard-btn:disabled,
+.team-action-secondary:disabled,
+.mod-page-btn:disabled {
+    -fx-opacity: 0.4;
+}
+
+.ghost-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.88em;
+    -fx-padding: 8 16 8 16;
+    -fx-cursor: hand;
+}
+
+.ghost-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-text-fill: white;
+}
+
+.icon-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-padding: 7;
+    -fx-cursor: hand;
+}
+
+.icon-btn .win-icon {
+    -fx-fill: -sc-text-3;
+}
+
+.icon-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.icon-btn:hover .win-icon {
+    -fx-fill: white;
+}
+
+.team-kick-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-color: rgba(255, 92, 108, 0.45);
+    -fx-border-radius: 999;
+    -fx-text-fill: #ffb3bb;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-padding: 7 16 7 16;
+    -fx-cursor: hand;
+}
+
+.team-kick-btn:hover {
+    -fx-background-color: #e5484d;
+    -fx-border-color: #e5484d;
+    -fx-text-fill: white;
+}
+
+.team-edit-btn {
+    -fx-padding: 7 12 7 12;
+}
+
+/* ---------- Paginas (configuracion / skin / equipo) ---------- */
+
+.page-view {
+    -fx-background-color: transparent;
+}
+
+.page-header {
+    -fx-padding: 6 28 12 40;
+}
+
+.page-title {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Black";
+    -fx-font-size: 1.8em;
+}
+
+.page-subtitle {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.9em;
+}
+
+.java-status-label {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.8em;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 6;
+    -fx-padding: 6 14 6 14;
+}
+
+.java-status-ok {
+    -fx-text-fill: #8ff0bd;
+    -fx-background-color: rgba(61, 214, 140, 0.10);
+}
+
+.java-status-bad {
+    -fx-text-fill: #ffb3bb;
+    -fx-background-color: rgba(255, 92, 108, 0.12);
+}
+
+.settings-top-tabs {
+    -fx-padding: 0 28 0 40;
+    -fx-border-color: transparent transparent -sc-border transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.settings-tab-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-text-fill: -sc-text-3;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.9em;
+    -fx-padding: 8 12 12 12;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-cursor: hand;
+}
+
+.settings-tab-btn:hover {
+    -fx-text-fill: -sc-text;
+}
+
+.settings-tab-btn-active,
+.settings-tab-btn-active:hover {
+    -fx-text-fill: white;
+    -fx-border-color: transparent transparent -sc-accent transparent;
+}
+
+.settings-root {
+    -fx-alignment: top-left;
 }
 
 .settings-scroll .scroll-bar:horizontal {
-    -fx-background-color: transparent;
-    -fx-padding: 0;
     -fx-opacity: 0;
-    -fx-max-width: 0;
-    -fx-pref-width: 0;
-    -fx-min-width: 0;
     -fx-max-height: 0;
     -fx-pref-height: 0;
     -fx-min-height: 0;
 }
 
-.settings-scroll .scroll-bar:vertical {
-    -fx-background-color: transparent;
-    -fx-padding: 12 4 12 0;
-    -fx-opacity: 1;
-    -fx-max-width: 12;
-    -fx-pref-width: 12;
-    -fx-min-width: 12;
-}
-
-.sidebar-scroll .scroll-bar:vertical .track,
-.login-scroll .scroll-bar:vertical .track,
-.settings-scroll .scroll-bar .track {
-    -fx-background-color: rgba(156, 173, 204, 0.22);
-    -fx-background-radius: 999;
-}
-
-.sidebar-scroll .scroll-bar:vertical .thumb,
-.login-scroll .scroll-bar:vertical .thumb,
-.settings-scroll .scroll-bar .thumb {
-    -fx-background-color: linear-gradient(to bottom, rgba(154, 177, 219, 0.90), rgba(122, 142, 186, 0.95));
-    -fx-background-radius: 999;
-}
-
-.settings-scroll .scroll-bar:vertical .increment-button,
-.settings-scroll .scroll-bar:vertical .decrement-button,
-.settings-scroll .scroll-bar:vertical .increment-arrow,
-.settings-scroll .scroll-bar:vertical .decrement-arrow {
-    -fx-padding: 0;
-    -fx-opacity: 0;
-    -fx-shape: '';
-}
-
-.sidebar {
-    -fx-background-color: transparent;
-    -fx-padding: 0 0 10 0;
-    -fx-spacing: 0;
-}
-
-.sidebar-divider {
-    -fx-background-color: linear-gradient(
-            to right,
-            transparent,
-            rgba(157, 177, 214, 0.42),
-            transparent
-    );
-}
-
-.canvas-9patch {
-    -fx-background-color: transparent;
-    -fx-background-radius: 0;
-    -fx-border-color: transparent;
-    -fx-border-width: 0;
-}
-
-.nav-box {
-    -fx-background-color: rgba(218, 232, 255, 0.05);
-    -fx-border-color: rgba(156, 179, 224, 0.26);
-    -fx-border-width: 1;
+.settings-section {
+    -fx-background-color: rgba(18, 16, 27, 0.82);
     -fx-background-radius: 12;
-    -fx-border-radius: 12;
-    -fx-padding: 5 0;
+    -fx-padding: 20 22 10 22;
 }
 
-.nav-btn {
+.settings-section-title {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 1.1em;
+}
+
+.settings-section-subtitle {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.86em;
+    -fx-padding: 2 0 8 0;
+}
+
+.setting-row {
+    -fx-padding: 14 0 14 0;
+    -fx-border-color: -sc-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.settings-field-label {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.94em;
+}
+
+.settings-hint {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.84em;
+}
+
+.settings-value {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.86em;
+}
+
+.settings-value-chip {
+    -fx-text-fill: -sc-accent;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.9em;
+    -fx-background-color: -sc-accent-soft;
+    -fx-background-radius: 6;
+    -fx-padding: 4 12 4 12;
+}
+
+.settings-field,
+.settings-combo {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 12;
+    -fx-border-color: transparent;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-text-fill: -sc-text;
+    -fx-prompt-text-fill: -sc-text-3;
+    -fx-highlight-fill: rgba(255, 181, 71, 0.40);
+    -fx-highlight-text-fill: white;
+    -fx-padding: 9 14 9 14;
+}
+
+.settings-field:hover,
+.settings-combo:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.075);
+}
+
+.settings-field:focused,
+.settings-combo:focused,
+.combo-box-base:showing {
+    -fx-border-color: rgba(255, 181, 71, 0.55);
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+}
+
+.settings-combo {
+    -fx-padding: 2 4 2 6;
+}
+
+.settings-combo > .list-cell {
+    -fx-text-fill: -sc-text;
     -fx-background-color: transparent;
-    -fx-text-fill: rgba(224, 234, 250, 0.96);
-    -fx-font-size: 1.15em;
-    -fx-font-weight: bold;
-    -fx-alignment: CENTER_LEFT;
-    -fx-padding: 12 16 12 16;
-    -fx-border-width: 0;
-    -fx-background-radius: 0;
-    -fx-pref-height: 52px;
-    -fx-graphic-text-gap: 12;
+    -fx-padding: 6 8 6 8;
+}
+
+.settings-combo > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 12 0 6;
+}
+
+.settings-combo > .arrow-button > .arrow {
+    -fx-background-color: -sc-text-2;
+}
+
+.combo-box-popup > .list-view {
+    -fx-background-color: -sc-surface-solid;
+    -fx-background-radius: 12;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 20, 0.2, 0, 8);
+    -fx-padding: 4;
+}
+
+.combo-box-popup > .list-view > .virtual-flow > .clipped-container > .sheet > .list-cell {
+    -fx-text-fill: -sc-text;
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-padding: 8 10 8 10;
+}
+
+.combo-box-popup > .list-view > .virtual-flow > .clipped-container > .sheet > .list-cell:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.combo-box-popup > .list-view > .virtual-flow > .clipped-container > .sheet > .list-cell:filled:selected {
+    -fx-background-color: -sc-accent-soft;
+    -fx-text-fill: -sc-accent;
+}
+
+/* Interruptor (CheckBox) */
+.settings-check,
+.switch {
+    -fx-padding: 0;
+    -fx-label-padding: 0;
     -fx-cursor: hand;
 }
 
-.nav-btn:hover {
-    -fx-background-color: rgba(136, 168, 226, 0.20);
-    -fx-text-fill: white;
-    -fx-border-color: transparent transparent rgba(172, 203, 255, 0.82) transparent;
-    -fx-border-width: 0 0 1.4 0;
+.settings-check > .box,
+.switch > .box {
+    -fx-background-color: rgba(255, 255, 255, 0.13);
+    -fx-background-insets: 0;
+    -fx-background-radius: 999;
+    -fx-border-color: transparent;
+    -fx-padding: 3 19 3 3;
 }
 
-.nav-btn-active {
-    -fx-background-color: rgba(120, 157, 224, 0.24);
-    -fx-text-fill: #f7fffb;
-    -fx-border-color: transparent transparent rgba(190, 215, 255, 0.90) transparent;
-    -fx-border-width: 0 0 1.8 0;
+.settings-check:hover > .box,
+.switch:hover > .box {
+    -fx-background-color: rgba(255, 255, 255, 0.20);
 }
 
-.user-box {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(82, 112, 165, 0.30) 0%,
-            rgba(52, 73, 112, 0.44) 100%
-    );
-    -fx-border-color: rgba(165, 191, 245, 0.58);
-    -fx-border-width: 1;
-    -fx-background-radius: 10;
-    -fx-border-radius: 10;
-    -fx-padding: 14 16 14 16;
-    -fx-spacing: 6;
-    -fx-effect: dropshadow(gaussian, rgba(54, 84, 135, 0.38), 14, 0.20, 0, 0);
+.settings-check > .box > .mark,
+.switch > .box > .mark {
+    -fx-background-color: #cfc9e2;
+    -fx-background-insets: 0;
+    -fx-shape: "M 0 7 A 7 7 0 1 0 14 7 A 7 7 0 1 0 0 7 Z";
+    -fx-scale-shape: true;
+    -fx-padding: 7;
 }
 
-.section-label {
-    -fx-text-fill: #a9c4f7;
-    -fx-font-size: 0.82em;
-    -fx-font-weight: bold;
+.settings-check:selected > .box,
+.switch:selected > .box {
+    -fx-background-color: -sc-accent;
+    -fx-padding: 3 3 3 19;
 }
 
-.username-label {
-    -fx-text-fill: rgba(235, 247, 242, 0.96);
-    -fx-font-size: 1.06em;
-    -fx-font-weight: bold;
+.settings-check:selected > .box > .mark,
+.switch:selected > .box > .mark {
+    -fx-background-color: white;
 }
 
-.version-label {
-    -fx-text-fill: rgba(164, 182, 212, 0.80);
+.settings-check:focused > .box,
+.switch:focused > .box {
+    -fx-background-insets: 0;
+}
+
+/* Slider de RAM (el relleno lo pinta el controlador) */
+/* Ojo: el SliderSkin alarga la pista tanto como su radio de esquina; radio chico. */
+.ram-slider > .track {
+    -fx-background-color: rgba(255, 255, 255, 0.12);
+    -fx-background-insets: 0;
+    -fx-background-radius: 3;
+    -fx-padding: 3;
+}
+
+.ram-slider > .thumb {
+    -fx-background-color: white;
+    -fx-background-insets: 0;
+    -fx-background-radius: 999;
+    -fx-padding: 8;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.4), 6, 0.2, 0, 1);
+    -fx-cursor: hand;
+}
+
+.ram-slider:focused > .thumb {
+    -fx-background-insets: 0;
+}
+
+/* Mods */
+.search-field {
+    -fx-padding: 10 16 10 16;
+}
+
+.mod-filter-chip {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 8;
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
     -fx-font-size: 0.84em;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+}
+
+.mod-filter-chip:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.09);
+    -fx-text-fill: -sc-text;
+}
+
+.mod-filter-chip:selected {
+    -fx-background-color: -sc-accent-soft;
+    -fx-text-fill: -sc-accent;
+}
+
+.mod-page-btn {
+    -fx-font-size: 1.05em;
+    -fx-padding: 1 12 3 12;
+}
+
+.mods-list {
+    -fx-background-color: transparent;
+}
+
+.mod-item-row {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+    -fx-background-radius: 12;
+    -fx-padding: 10 14 10 12;
+}
+
+.mod-item-row:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+}
+
+.mod-item-name {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.94em;
+}
+
+.mod-item-file {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.78em;
+}
+
+.mod-item-section {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.72em;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+    -fx-background-radius: 4;
+    -fx-padding: 1 8 1 8;
+}
+
+/* Packs de textura */
+.resourcepack-editor {
+    -fx-alignment: top-center;
+}
+
+.resourcepack-column {
+    -fx-background-color: rgba(255, 255, 255, 0.025);
+    -fx-background-radius: 14;
+    -fx-padding: 14;
+}
+
+.resourcepack-column-title {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.8em;
+}
+
+.resourcepack-item-row {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+    -fx-background-radius: 12;
+    -fx-padding: 10 12 10 10;
+    -fx-min-height: 72;
+}
+
+.resourcepack-item-copy {
     -fx-alignment: center-left;
 }
 
-.discord-btn {
-    -fx-background-color: linear-gradient(to bottom, rgba(81, 101, 241, 0.40), rgba(64, 81, 204, 0.46));
-    -fx-background-radius: 10;
-    -fx-border-color: rgba(184, 198, 255, 0.45);
-    -fx-border-radius: 10;
-    -fx-border-width: 1;
-    -fx-text-fill: rgba(234, 240, 255, 0.96);
-    -fx-font-size: 1.02em;
-    -fx-font-weight: bold;
-    -fx-alignment: CENTER_LEFT;
-    -fx-padding: 12 16;
+.resourcepack-item-name {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.94em;
+}
+
+.resourcepack-item-description {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.8em;
+}
+
+.resourcepack-toggle-btn,
+.resourcepack-order-btn {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-radius: 999;
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.8em;
+    -fx-padding: 5 10 5 10;
     -fx-cursor: hand;
-    -fx-pref-height: 48px;
-    -fx-graphic-text-gap: 12;
+    -fx-pref-width: 92;
+    -fx-min-width: 88;
+    -fx-alignment: center;
 }
 
-.discord-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, rgba(104, 128, 255, 0.54), rgba(72, 93, 221, 0.62));
-    -fx-effect: dropshadow(gaussian, rgba(124, 152, 255, 0.34), 18, 0.20, 0, 0);
+.resourcepack-toggle-btn:hover,
+.resourcepack-order-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
 }
 
-.center-vignette-left {
-    -fx-background-color: linear-gradient(
-            to right,
-            rgba(8, 12, 20, 0.64) 0%,
-            rgba(8, 12, 20, 0.28) 24%,
-            transparent 56%
-    );
+.resourcepack-toggle-btn-selected {
+    -fx-background-color: -sc-accent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -sc-accent-text;
 }
 
-.center-vignette-top {
-    -fx-background-color: linear-gradient(to top, transparent 66%, rgba(4, 7, 11, 0.45) 100%);
+.resourcepack-toggle-btn-selected:hover {
+    -fx-background-color: -sc-accent-hover;
 }
 
-.center-vignette-bottom {
-    -fx-background-color: linear-gradient(to bottom, transparent 28%, rgba(3, 5, 9, 0.78) 100%);
+.resourcepack-remove-btn {
+    -fx-border-color: rgba(255, 92, 108, 0.45);
+    -fx-text-fill: #ffb3bb;
 }
 
-.play-btn {
-    -fx-background-color: linear-gradient(to bottom, rgba(122, 160, 230, 0.94), rgba(84, 119, 190, 0.96));
-    -fx-background-radius: 14;
-    -fx-border-color: rgba(211, 226, 255, 0.84);
-    -fx-border-radius: 14;
-    -fx-border-width: 1;
-    -fx-text-fill: #f6f9ff;
-    -fx-font-size: 1.44em;
-    -fx-font-weight: bold;
-    -fx-pref-width: 300px;
-    -fx-min-width: 230px;
-    -fx-max-width: 390px;
-    -fx-pref-height: 74px;
-    -fx-min-height: 58px;
-    -fx-cursor: hand;
-    -fx-effect: dropshadow(gaussian, rgba(70, 103, 170, 0.50), 28, 0.24, 0, 6);
+.resourcepack-remove-btn:hover {
+    -fx-background-color: #e5484d;
+    -fx-border-color: #e5484d;
+    -fx-text-fill: white;
 }
 
-.play-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, rgba(142, 178, 246, 0.98), rgba(93, 129, 206, 1.0));
-    -fx-border-color: rgba(227, 236, 255, 0.95);
-    -fx-effect: dropshadow(gaussian, rgba(92, 125, 196, 0.62), 32, 0.28, 0, 8);
+.resourcepack-order-btn:disabled {
+    -fx-opacity: 0.35;
 }
 
-.play-btn:pressed {
-    -fx-background-color: rgba(69, 99, 162, 0.96);
-    -fx-scale-x: 0.98;
-    -fx-scale-y: 0.98;
-    -fx-effect: none;
+/* Barra de guardar */
+.settings-action-bar {
+    -fx-background-color: #191623;
+    -fx-background-radius: 12;
+    -fx-padding: 8 8 8 22;
+    -fx-max-width: 720;
+    -fx-translate-y: -18;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 14, 0.3, 0, 5);
 }
 
-.status-label {
-    -fx-text-fill: rgba(194, 218, 255, 0.98);
-    -fx-font-size: 1.04em;
-    -fx-font-weight: bold;
-    -fx-effect: dropshadow(gaussian, rgba(132, 162, 228, 0.42), 12, 0.26, 0, 0);
+.settings-action-hint {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.9em;
 }
 
-.sidebar-status-label {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(42, 60, 92, 0.34) 0%,
-            rgba(26, 40, 64, 0.44) 100%
-    );
-    -fx-border-color: rgba(150, 177, 228, 0.52);
-    -fx-border-width: 1;
-    -fx-background-radius: 10;
-    -fx-border-radius: 10;
-    -fx-padding: 10 12 10 12;
-    -fx-font-size: 0.92em;
-    -fx-effect: dropshadow(gaussian, rgba(35, 56, 94, 0.34), 12, 0.18, 0, 0);
+.settings-status {
+    -fx-text-fill: -sc-accent;
+    -fx-font-size: 0.84em;
 }
 
-.play-btn:disabled {
-    -fx-background-color: linear-gradient(to bottom, rgba(38, 48, 66, 0.96), rgba(28, 35, 48, 0.96));
-    -fx-border-color: rgba(111, 129, 160, 0.52);
-    -fx-text-fill: rgba(193, 206, 228, 0.70);
-    -fx-effect: none;
-    -fx-opacity: 1.0;
-    -fx-cursor: default;
+/* ---------- Scrollbars ---------- */
+
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-padding: 4 3 4 0;
+    -fx-pref-width: 9;
 }
+
+.scroll-pane .scroll-bar:vertical .track,
+.scroll-pane .scroll-bar:vertical .track-background {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255, 255, 255, 0.14);
+    -fx-background-radius: 999;
+    -fx-background-insets: 0 1 0 1;
+}
+
+.scroll-pane .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.26);
+}
+
+.scroll-pane .scroll-bar .increment-button,
+.scroll-pane .scroll-bar .decrement-button,
+.scroll-pane .scroll-bar .increment-arrow,
+.scroll-pane .scroll-bar .decrement-arrow {
+    -fx-padding: 0;
+    -fx-shape: "";
+    -fx-background-color: transparent;
+}
+
+.sidebar-scroll .scroll-bar:vertical,
+.sidebar-scroll .scroll-bar:horizontal {
+    -fx-opacity: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+}
+
+/* ---------- Pantalla de carga ---------- */
 
 .loading-backdrop {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(5, 9, 14, 0.78) 0%,
-            rgba(3, 6, 10, 0.84) 100%
-    );
+    -fx-background-color: rgba(6, 5, 10, 0.84);
 }
 
 .loading-card {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(10, 18, 28, 0.88) 0%,
-            rgba(8, 14, 22, 0.92) 100%
-    );
-    -fx-border-color: rgba(164, 185, 224, 0.34);
-    -fx-border-width: 1;
+    -fx-background-color: -sc-surface-solid;
     -fx-background-radius: 14;
-    -fx-border-radius: 14;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.72), 36, 0.30, 0, 12);
-    -fx-padding: 24 30 24 30;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 20, 0.3, 0, 8);
+    -fx-padding: 30 36 30 36;
 }
 
 .load-status-text {
-    -fx-text-fill: rgba(204, 220, 245, 0.95);
-    -fx-font-size: 1.04em;
-    -fx-font-weight: bold;
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 1.0em;
+    -fx-text-alignment: center;
 }
 
 .progress-head-label {
-    -fx-text-fill: rgba(163, 184, 219, 0.90);
-    -fx-font-size: 0.83em;
-    -fx-font-weight: bold;
+    -fx-text-fill: -sc-text-3;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.7em;
 }
 
 .progress-percent-label {
-    -fx-text-fill: rgba(231, 239, 255, 0.97);
-    -fx-font-size: 0.92em;
-    -fx-font-weight: bold;
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.84em;
 }
 
 .progress-track {
-    -fx-background-color: rgba(175, 198, 241, 0.18);
-    -fx-border-color: rgba(184, 207, 249, 0.24);
-    -fx-border-width: 1;
+    -fx-background-color: rgba(255, 255, 255, 0.08);
     -fx-background-radius: 999;
-    -fx-border-radius: 999;
-    -fx-padding: 2;
+    -fx-padding: 1;
 }
 
 .progress-fill {
@@ -409,487 +1025,899 @@
 }
 
 .progress-fill-total {
-    -fx-background-color: linear-gradient(to right, #6ea8ff 0%, #4d78d5 100%);
+    -fx-background-color: -sc-accent;
 }
 
 .progress-fill-download {
-    -fx-background-color: linear-gradient(to right, #f3b56b 0%, #d68636 100%);
+    -fx-background-color: rgba(243, 241, 248, 0.75);
 }
 
 .progress-indicator {
+    -fx-background-color: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
     -fx-background-radius: 999;
-    -fx-opacity: 0.98;
-}
-
-.progress-indicator-total {
-    -fx-background-color: rgba(236, 244, 255, 0.95);
-    -fx-effect: dropshadow(gaussian, rgba(170, 199, 255, 0.86), 10, 0.32, 0, 0);
-}
-
-.progress-indicator-download {
-    -fx-background-color: rgba(255, 240, 220, 0.95);
-    -fx-effect: dropshadow(gaussian, rgba(248, 189, 109, 0.82), 10, 0.32, 0, 0);
 }
 
 .timer-label {
-    -fx-text-fill: rgba(166, 183, 211, 0.86);
-    -fx-font-size: 0.88em;
-}
-
-.settings-root {
-    -fx-padding: 24 34 24 34;
-    -fx-alignment: top-left;
-}
-
-.settings-top-tabs {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(12, 18, 28, 0.92) 0%,
-            rgba(9, 14, 22, 0.86) 100%
-    );
-    -fx-border-color: transparent transparent rgba(141, 165, 210, 0.35) transparent;
-    -fx-border-width: 0 0 1 0;
-}
-
-.settings-tab-btn {
-    -fx-background-color: rgba(148, 172, 218, 0.18);
-    -fx-text-fill: rgba(222, 233, 251, 0.95);
-    -fx-font-weight: bold;
-    -fx-padding: 8 14 8 14;
-    -fx-background-radius: 10;
-    -fx-border-color: rgba(157, 183, 232, 0.42);
-    -fx-border-width: 1;
-    -fx-border-radius: 10;
-    -fx-cursor: hand;
-}
-
-.settings-tab-btn:hover {
-    -fx-background-color: rgba(135, 168, 230, 0.34);
-}
-
-.settings-tab-btn-active {
-    -fx-background-color: linear-gradient(to bottom, rgba(126, 160, 231, 0.92), rgba(95, 124, 194, 0.94));
-    -fx-text-fill: white;
-    -fx-border-color: rgba(211, 226, 255, 0.85);
-}
-
-.java-status-label {
-    -fx-text-fill: rgba(198, 217, 248, 0.96);
-    -fx-font-size: 0.90em;
-    -fx-font-weight: bold;
-}
-
-.java-status-ok {
-    -fx-text-fill: #a9f3bb;
-}
-
-.java-status-bad {
-    -fx-text-fill: #ffaaaa;
-}
-
-.settings-title {
-    -fx-text-fill: rgba(234, 242, 255, 0.98);
-    -fx-font-size: 1.66em;
-    -fx-font-weight: bold;
-}
-
-.settings-subtitle {
-    -fx-text-fill: rgba(173, 190, 218, 0.92);
-    -fx-font-size: 0.94em;
-}
-
-.settings-section {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(17, 24, 36, 0.80) 0%,
-            rgba(11, 16, 26, 0.86) 100%
-    );
-    -fx-border-color: rgba(158, 181, 228, 0.36);
-    -fx-border-width: 1;
-    -fx-background-radius: 14;
-    -fx-border-radius: 14;
-    -fx-padding: 16 18 16 18;
-    -fx-spacing: 10;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.34), 18, 0.24, 0, 4);
-}
-
-.settings-section-title {
-    -fx-text-fill: rgba(218, 230, 255, 0.97);
-    -fx-font-size: 1.10em;
-    -fx-font-weight: bold;
-}
-
-.settings-hint {
-    -fx-text-fill: rgba(157, 176, 205, 0.88);
-    -fx-font-size: 0.90em;
-}
-
-.settings-field-label {
-    -fx-text-fill: rgba(166, 190, 233, 0.96);
-    -fx-font-size: 0.88em;
-    -fx-font-weight: bold;
-}
-
-.settings-field,
-.settings-combo {
-    -fx-background-color: rgba(213, 227, 255, 0.10);
-    -fx-border-color: rgba(153, 176, 223, 0.38);
-    -fx-border-width: 1;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
-    -fx-text-fill: rgba(236, 244, 255, 0.98);
-    -fx-prompt-text-fill: rgba(154, 171, 199, 0.76);
-    -fx-padding: 9 11 9 11;
-}
-
-.settings-field:focused,
-.settings-combo:focused {
-    -fx-border-color: rgba(170, 199, 255, 0.88);
-    -fx-effect: dropshadow(gaussian, rgba(118, 149, 212, 0.36), 10, 0.18, 0, 0);
-}
-
-.settings-combo .list-cell {
-    -fx-text-fill: rgba(230, 240, 255, 0.97);
-    -fx-background-color: transparent;
-}
-
-.settings-combo .arrow-button {
-    -fx-background-color: rgba(115, 146, 206, 0.30);
-    -fx-background-radius: 0 8 8 0;
-}
-
-.settings-check {
-    -fx-text-fill: rgba(226, 236, 255, 0.96);
-    -fx-cursor: hand;
-}
-
-.settings-check .box {
-    -fx-background-color: rgba(210, 225, 255, 0.12);
-    -fx-border-color: rgba(165, 189, 236, 0.50);
-    -fx-border-width: 1;
-    -fx-background-radius: 4;
-    -fx-border-radius: 4;
-}
-
-.settings-check:selected .mark {
-    -fx-background-color: #b8d1ff;
-}
-
-.settings-check:hover {
-    -fx-text-fill: rgba(240, 247, 255, 1.0);
-}
-
-.settings-value {
-    -fx-text-fill: rgba(221, 235, 255, 0.98);
-    -fx-font-size: 0.92em;
-    -fx-font-weight: bold;
-}
-
-.settings-save-btn {
-    -fx-background-color: linear-gradient(to bottom, #7da8f0 0%, #5f81cf 100%);
-    -fx-background-radius: 10;
-    -fx-border-width: 0;
-    -fx-text-fill: #ffffff;
-    -fx-font-size: 1.0em;
-    -fx-font-weight: bold;
-    -fx-padding: 10 18 10 18;
-    -fx-cursor: hand;
-}
-
-.settings-save-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, #93b9f5 0%, #6f94df 100%);
-}
-
-.settings-save-btn:pressed {
-    -fx-background-color: #4a69ae;
-}
-
-.settings-save-btn:disabled {
-    -fx-background-color: rgba(70, 82, 105, 0.85);
-    -fx-text-fill: rgba(196, 206, 224, 0.64);
-    -fx-cursor: default;
-    -fx-opacity: 1.0;
-}
-
-.settings-status {
-    -fx-text-fill: rgba(186, 205, 241, 0.95);
-    -fx-font-size: 0.88em;
-}
-
-.settings-action-bar {
-    -fx-background-color: linear-gradient(
-            to top,
-            rgba(8, 12, 20, 0.96) 0%,
-            rgba(10, 15, 23, 0.90) 100%
-    );
-    -fx-border-color: rgba(148, 172, 220, 0.42) transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
-}
-
-.settings-discard-btn {
-    -fx-background-color: rgba(129, 150, 189, 0.24);
-    -fx-border-color: rgba(167, 188, 224, 0.52);
-    -fx-border-width: 1;
-    -fx-border-radius: 10;
-    -fx-background-radius: 10;
-    -fx-text-fill: rgba(230, 240, 255, 0.96);
-    -fx-font-weight: bold;
-    -fx-padding: 10 18 10 18;
-    -fx-cursor: hand;
-}
-
-.settings-discard-btn:hover {
-    -fx-background-color: rgba(151, 174, 218, 0.36);
-}
-
-.settings-discard-btn:pressed {
-    -fx-background-color: rgba(93, 111, 147, 0.64);
-}
-
-.settings-discard-btn:disabled {
-    -fx-background-color: rgba(60, 74, 96, 0.55);
-    -fx-text-fill: rgba(195, 208, 233, 0.54);
-    -fx-border-color: rgba(120, 142, 182, 0.30);
-}
-
-.mod-filter-combo {
-    -fx-pref-width: 180px;
-}
-
-.mod-filter-label {
-    -fx-text-fill: rgba(176, 196, 232, 0.94);
-    -fx-font-size: 0.86em;
-    -fx-font-weight: bold;
-}
-
-.mod-page-btn {
-    -fx-background-color: rgba(122, 152, 210, 0.32);
-    -fx-text-fill: rgba(232, 241, 255, 0.96);
-    -fx-border-color: rgba(156, 181, 227, 0.56);
-    -fx-border-width: 1;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-padding: 7 12 7 12;
-    -fx-cursor: hand;
-}
-
-.mod-page-btn:hover {
-    -fx-background-color: rgba(142, 173, 232, 0.48);
-}
-
-.mod-page-btn:disabled {
-    -fx-background-color: rgba(68, 83, 110, 0.66);
-    -fx-text-fill: rgba(194, 207, 229, 0.58);
-    -fx-border-color: rgba(110, 127, 157, 0.42);
-}
-
-.mods-list {
-    -fx-background-color: rgba(11, 17, 27, 0.66);
-    -fx-border-color: rgba(136, 162, 209, 0.34);
-    -fx-border-width: 1;
-    -fx-border-radius: 12;
-    -fx-background-radius: 12;
-    -fx-padding: 10;
-}
-
-.mod-item-row {
-    -fx-background-color: rgba(121, 152, 208, 0.12);
-    -fx-border-color: rgba(155, 180, 224, 0.30);
-    -fx-border-width: 1;
-    -fx-border-radius: 9;
-    -fx-background-radius: 9;
-    -fx-padding: 8 10 8 10;
-}
-
-.mod-item-name {
-    -fx-text-fill: rgba(232, 242, 255, 0.98);
-    -fx-font-size: 0.96em;
-    -fx-font-weight: bold;
-}
-
-.mod-item-file {
-    -fx-text-fill: rgba(172, 189, 217, 0.94);
+    -fx-text-fill: -sc-text-3;
     -fx-font-size: 0.82em;
 }
 
-.mod-item-section {
-    -fx-text-fill: rgba(146, 167, 205, 0.88);
-    -fx-font-size: 0.78em;
+/* ---------- Arranque interno ---------- */
+
+.startup-overlay {
+    -fx-background-color: -sc-bg;
 }
 
-.mod-toggle-btn {
-    -fx-background-color: rgba(146, 171, 214, 0.24);
-    -fx-border-color: rgba(167, 191, 233, 0.54);
-    -fx-border-width: 1;
-    -fx-border-radius: 999;
+.startup-title {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 1.15em;
+}
+
+.startup-progress-track {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
     -fx-background-radius: 999;
-    -fx-text-fill: rgba(234, 243, 255, 0.97);
-    -fx-font-weight: bold;
-    -fx-padding: 6 14 6 14;
+}
+
+.startup-progress-fill {
+    -fx-background-color: -sc-accent;
+    -fx-background-radius: 999;
+}
+
+.startup-percent {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.84em;
+}
+
+/* ---------- Tooltips ---------- */
+
+.tooltip,
+.hover-tip {
+    -fx-background-color: -sc-surface-solid;
+    -fx-text-fill: -sc-text;
+    -fx-background-radius: 8;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.84em;
+    -fx-padding: 6 10 6 10;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 14, 0.2, 0, 3);
+}
+
+/* ---------- Notificaciones (libro de Minecraft, fuente pixelada) ---------- */
+
+.notification-bell-btn {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-background-radius: 999;
+    -fx-padding: 9;
     -fx-cursor: hand;
 }
 
-.mod-toggle-btn:selected {
-    -fx-background-color: linear-gradient(to bottom, #8dc0ff 0%, #6796de 100%);
-    -fx-border-color: rgba(214, 230, 255, 0.84);
+.notification-bell-btn .win-icon {
+    -fx-fill: -sc-text;
+}
+
+.notification-bell-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.14);
+}
+
+.notification-bell-btn-open,
+.notification-bell-btn-open:hover {
+    -fx-background-color: -sc-accent-soft;
+}
+
+.notification-bell-btn-open .win-icon,
+.notification-bell-btn-open:hover .win-icon {
+    -fx-fill: -sc-accent;
+}
+
+.notification-badge {
+    -fx-background-color: -sc-red;
+    -fx-background-radius: 999;
+    -fx-border-color: #0b0a12;
+    -fx-border-width: 2;
+    -fx-border-radius: 999;
+    -fx-padding: 0 5 0 5;
+    -fx-min-width: 19;
+    -fx-min-height: 19;
+    -fx-max-height: 19;
+}
+
+.notification-badge-label {
     -fx-text-fill: white;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.68em;
 }
 
-.mod-toggle-btn:hover {
-    -fx-background-color: rgba(166, 192, 236, 0.40);
+.notifications-shell {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 16, 0.3, 0, 8);
 }
 
-.combo-box-base:showing {
-    -fx-effect: dropshadow(gaussian, rgba(138, 174, 238, 0.44), 14, 0.20, 0, 0);
-    -fx-border-color: rgba(184, 209, 255, 0.90);
+.book-title,
+.book-count,
+.book-close-btn,
+.notification-section,
+.notification-title,
+.notification-body,
+.notification-meta,
+.notification-state,
+.notification-accept-btn,
+.notification-reject-btn,
+.toast-title,
+.toast-body {
+    -fx-font-family: "Minecraft";
+    -fx-font-smoothing-type: gray;
 }
+
+.book-title {
+    -fx-text-fill: #2d1f0d;
+    -fx-font-size: 15px;
+}
+
+.book-count {
+    -fx-text-fill: #fff6e6;
+    -fx-font-size: 11px;
+    -fx-background-color: #a8432f;
+    -fx-padding: 1 5 1 5;
+}
+
+.book-close-btn {
+    -fx-background-color: rgba(122, 86, 38, 0.20);
+    -fx-border-color: rgba(106, 72, 28, 0.40);
+    -fx-border-width: 1;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-text-fill: #2d1f0d;
+    -fx-font-size: 12px;
+    -fx-padding: 2 7 2 7;
+    -fx-cursor: hand;
+}
+
+.book-close-btn:hover {
+    -fx-background-color: rgba(147, 100, 43, 0.38);
+}
+
+.notifications-scroll .scroll-bar:vertical {
+    -fx-padding: 0 0 0 4;
+}
+
+.notifications-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(120, 88, 40, 0.55);
+    -fx-background-radius: 0;
+}
+
+.notifications-list {
+    -fx-padding: 2 4 8 2;
+    -fx-fill-width: true;
+}
+
+.notification-section {
+    -fx-text-fill: #7a5c2e;
+    -fx-font-size: 11px;
+    -fx-padding: 4 0 0 2;
+}
+
+.notification-card {
+    -fx-background-color: rgba(255, 250, 240, 0.38);
+    -fx-background-radius: 3;
+    -fx-padding: 10 12 10 12;
+}
+
+.notification-card-highlight {
+    -fx-background-color: rgba(255, 250, 240, 0.66);
+    -fx-border-color: transparent transparent transparent #b0703a;
+    -fx-border-width: 0 0 0 3;
+}
+
+.notification-title {
+    -fx-text-fill: #20160c;
+    -fx-font-size: 14px;
+}
+
+.notification-body {
+    -fx-text-fill: #3a2a1a;
+    -fx-font-size: 12px;
+}
+
+.notification-meta,
+.notification-state {
+    -fx-text-fill: #6a5633;
+    -fx-font-size: 11px;
+}
+
+.notification-empty-state {
+    -fx-padding: 6 8 6 8;
+}
+
+.notification-accept-btn,
+.notification-reject-btn {
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-border-width: 2;
+    -fx-font-size: 12px;
+    -fx-padding: 3 12 3 12;
+    -fx-cursor: hand;
+}
+
+.notification-accept-btn {
+    -fx-background-color: #5d8a3a;
+    -fx-border-color: #2f4a1c;
+    -fx-text-fill: #f4f9ec;
+}
+
+.notification-accept-btn:hover {
+    -fx-background-color: #6d9e46;
+}
+
+.notification-reject-btn {
+    -fx-background-color: #8b6b45;
+    -fx-border-color: #4a3520;
+    -fx-text-fill: #fbf3e4;
+}
+
+.notification-reject-btn:hover {
+    -fx-background-color: #9c7a51;
+}
+
+/* Aviso emergente: una nota de pergamino */
+.toast {
+    -fx-background-color: #e9dcbf;
+    -fx-background-radius: 0;
+    -fx-border-color: #4a3520;
+    -fx-border-width: 2;
+    -fx-padding: 10 14 10 14;
+    -fx-min-width: 280;
+    -fx-max-width: 340;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 12, 0.3, 0, 5);
+    -fx-cursor: hand;
+}
+
+.toast-title {
+    -fx-text-fill: #20160c;
+    -fx-font-size: 14px;
+}
+
+.toast-body {
+    -fx-text-fill: #3a2a1a;
+    -fx-font-size: 12px;
+}
+
+/* ---------- Modal (actualizaciones) ---------- */
+
+.modal-layer {
+    -fx-background-color: rgba(4, 3, 8, 0.70);
+}
+
+.modal-card {
+    -fx-background-color: -sc-surface-solid;
+    -fx-background-radius: 14;
+    -fx-padding: 26 28 20 28;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 20, 0.3, 0, 8);
+}
+
+.modal-title {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Black";
+    -fx-font-size: 1.5em;
+}
+
+.modal-body {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.92em;
+    -fx-line-spacing: 2;
+}
+
+.modal-notes {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.84em;
+}
+
+.modal-notes-scroll {
+    -fx-background-color: rgba(0, 0, 0, 0.20);
+    -fx-background: transparent;
+    -fx-background-radius: 12;
+    -fx-padding: 10 12 10 12;
+}
+
+.modal-notes-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.modal-progress-track {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-background-radius: 999;
+    -fx-pref-height: 6;
+    -fx-min-height: 6;
+    -fx-max-height: 6;
+}
+
+.modal-progress-fill {
+    -fx-background-color: -sc-accent;
+    -fx-background-radius: 999;
+}
+
+/* ---------- Dialogos del sistema (Alert) ---------- */
+
+.sc-dialog {
+    -fx-background-color: -sc-surface-solid;
+    -fx-background-radius: 18;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-radius: 18;
+    -fx-padding: 4;
+    -fx-min-width: 420;
+}
+
+.sc-dialog > .header-panel {
+    -fx-background-color: transparent;
+    -fx-padding: 20 24 0 24;
+}
+
+.sc-dialog > .header-panel > .label {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Black";
+    -fx-font-size: 1.25em;
+}
+
+.sc-dialog > .content.label {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.94em;
+    -fx-padding: 14 24 10 24;
+}
+
+.sc-dialog > .button-bar > .container {
+    -fx-padding: 10 20 18 20;
+}
+
+.sc-dialog .button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 999;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-radius: 999;
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-padding: 7 18 7 18;
+    -fx-cursor: hand;
+}
+
+.sc-dialog .button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+}
+
+.sc-dialog .button:default {
+    -fx-background-color: -sc-accent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -sc-accent-text;
+}
+
+/* ---------- Login ---------- */
 
 .login-root {
-    -fx-background-color: rgba(0, 0, 0, 0.30);
+    -fx-background-color: transparent;
 }
 
 .login-backdrop {
-    -fx-background-color: linear-gradient(
-            to bottom,
-            rgba(5, 9, 14, 0.54) 0%,
-            rgba(3, 6, 10, 0.68) 100%
-    );
+    -fx-background-color: rgba(6, 5, 10, 0.66);
 }
 
+/* Tarjeta dividida: formulario | imagen */
 .login-card {
-    -fx-background-color: transparent;
-    -fx-background-radius: 0;
-    -fx-border-color: transparent;
-    -fx-border-width: 0;
-    -fx-padding: 38 42 36 42;
-    -fx-effect: none;
+    -fx-background-color: #121019;
+    -fx-background-radius: 14;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 24, 0.25, 0, 10);
 }
 
-.login-subtitle {
-    -fx-text-fill: rgba(174, 194, 228, 0.90);
+.login-form-panel {
+    -fx-padding: 36 48 32 48;
+}
+
+.login-art {
+    -fx-background-color: #1b1924;
+}
+
+.login-art-shade {
+    -fx-background-color: linear-gradient(to right, rgba(18, 16, 25, 0.55) 0%, rgba(18, 16, 25, 0) 30%),
+                          linear-gradient(to bottom, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.login-scroll .scroll-bar:vertical {
+    -fx-opacity: 0.8;
+}
+
+.login-field {
+    -fx-background-color: #1c1a25;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(255, 255, 255, 0.07);
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-text-fill: -sc-text;
+    -fx-prompt-text-fill: #6f6a82;
+    -fx-highlight-fill: rgba(255, 181, 71, 0.40);
+    -fx-highlight-text-fill: white;
     -fx-font-size: 0.98em;
-    -fx-text-alignment: center;
-    -fx-alignment: center;
+    -fx-padding: 0 14 0 44;
 }
 
-.login-field-lbl {
-    -fx-text-fill: #a8c3f6;
-    -fx-font-size: 0.82em;
-    -fx-font-weight: bold;
+.login-field:hover {
+    -fx-border-color: rgba(255, 255, 255, 0.14);
 }
 
-.login-underline-field {
+.login-field:focused {
+    -fx-border-color: rgba(255, 181, 71, 0.65);
+    -fx-background-color: #201d2a;
+}
+
+.login-field-icon {
+    -fx-fill: #6f6a82;
+    -fx-scale-x: 0.78;
+    -fx-scale-y: 0.78;
+    -fx-translate-x: 12;
+}
+
+.login-field-box:focus-within .login-field-icon {
+    -fx-fill: -sc-accent;
+}
+
+.login-check {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.88em;
+    -fx-cursor: hand;
+    -fx-padding: 2 0 0 2;
+}
+
+.login-check > .box {
+    -fx-background-color: #1c1a25;
+    -fx-background-radius: 4;
+    -fx-border-color: rgba(255, 255, 255, 0.16);
+    -fx-border-radius: 4;
+    -fx-padding: 3;
+}
+
+.login-check:selected > .box {
+    -fx-background-color: -sc-accent;
+    -fx-border-color: -sc-accent;
+}
+
+.login-check > .box > .mark {
     -fx-background-color: transparent;
-    -fx-border-color: transparent transparent rgba(187, 207, 245, 0.38) transparent;
-    -fx-border-width: 0 0 1.7 0;
-    -fx-text-fill: rgba(233, 242, 255, 0.97);
-    -fx-prompt-text-fill: rgba(157, 176, 205, 0.74);
-    -fx-font-size: 1.12em;
-    -fx-padding: 10 4;
-    -fx-pref-height: 50px;
-    -fx-highlight-fill: rgba(136, 171, 240, 0.34);
+    -fx-padding: 4;
 }
 
-.login-underline-field:focused {
-    -fx-border-color: transparent transparent #9ec0ff transparent;
-    -fx-background-color: transparent;
+.login-check:selected > .box > .mark {
+    -fx-background-color: -sc-accent-text;
 }
 
 .login-error-lbl {
-    -fx-text-fill: rgba(255, 128, 128, 0.96);
-    -fx-font-size: 0.92em;
+    -fx-text-fill: #ff9aa5;
+    -fx-font-size: 0.86em;
     -fx-opacity: 0;
 }
 
+.login-note-lbl {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.84em;
+}
+
+.login-muted-lbl {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.88em;
+}
+
 .login-green-btn {
-    -fx-background-color: linear-gradient(to bottom, #7ea9f2 0%, #5f82d0 100%);
-    -fx-background-radius: 10;
+    -fx-background-color: -sc-accent;
+    -fx-background-radius: 8;
     -fx-border-width: 0;
-    -fx-text-fill: white;
-    -fx-font-size: 1.16em;
-    -fx-font-weight: bold;
-    -fx-pref-height: 54px;
+    -fx-text-fill: -sc-accent-text;
+    -fx-font-size: 0.98em;
     -fx-cursor: hand;
 }
 
 .login-green-btn:hover {
-    -fx-background-color: linear-gradient(to bottom, #95bcf6 0%, #7096df 100%);
+    -fx-background-color: -sc-accent-hover;
 }
 
 .login-green-btn:pressed {
-    -fx-background-color: #4968ad;
     -fx-scale-x: 0.98;
     -fx-scale-y: 0.98;
 }
 
 .login-green-btn:disabled {
-    -fx-background-color: rgba(76, 105, 162, 0.52);
-    -fx-text-fill: rgba(255, 255, 255, 0.54);
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: -sc-text-3;
+    -fx-opacity: 1.0;
 }
 
-.combo-box-popup > .list-view {
-    -fx-background-color: linear-gradient(to bottom, rgba(13, 20, 31, 0.98), rgba(10, 16, 24, 0.98));
-    -fx-border-color: rgba(157, 181, 228, 0.46);
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 18, 0.24, 0, 6);
-    -fx-padding: 4;
+.login-switch-link {
+    -fx-text-fill: -sc-accent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.88em;
 }
 
-.combo-box-popup .list-cell {
-    -fx-text-fill: rgba(228, 238, 255, 0.97);
-    -fx-background-color: transparent;
-    -fx-padding: 8 10 8 10;
+.login-switch-link:hover {
+    -fx-text-fill: -sc-accent-hover;
+    -fx-underline: true;
 }
 
-.combo-box-popup .list-cell:hover {
-    -fx-background-color: rgba(128, 160, 224, 0.28);
+.login-switch-link:visited {
+    -fx-text-fill: -sc-accent;
+}
+
+/* ---------- Skin ---------- */
+
+.skin-root {
+    -fx-alignment: top-center;
+}
+
+.skin-card,
+.team-card {
+    -fx-background-color: rgba(18, 16, 27, 0.82);
+    -fx-background-radius: 12;
+    -fx-padding: 26 28 26 28;
+}
+
+.skin-card {
+    -fx-spacing: 18;
+}
+
+.skin-state-badge {
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.78em;
     -fx-background-radius: 6;
+    -fx-padding: 3 10 3 10;
 }
 
-.combo-box-popup .list-cell:filled:selected {
-    -fx-background-color: rgba(112, 145, 209, 0.42);
-    -fx-background-radius: 6;
+.skin-state-saved {
+    -fx-text-fill: #8ff0bd;
+    -fx-background-color: rgba(61, 214, 140, 0.12);
 }
 
-.startup-overlay {
-    -fx-background-color: rgba(0, 0, 0, 0.97);
+.skin-state-dirty {
+    -fx-text-fill: -sc-accent;
+    -fx-background-color: -sc-accent-soft;
 }
 
-.startup-title {
-    -fx-text-fill: #f3f7ff;
-    -fx-font-size: 1.34em;
-    -fx-font-weight: bold;
-    -fx-text-alignment: center;
+.skin-viewer-panel {
+    -fx-background-color: rgba(0, 0, 0, 0.24);
+    -fx-background-radius: 12;
+    -fx-padding: 16 20 14 20;
+    -fx-min-width: 340;
+}
+
+.skin-side-panel {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+    -fx-background-radius: 12;
+    -fx-padding: 18 20 18 20;
+}
+
+.skin-section-title {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "Minecraft Ten";
+    -fx-font-size: 1.05em;
+}
+
+.skin-segmented .toggle-button {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-background-radius: 0;
+    -fx-border-color: -sc-border-strong;
+    -fx-border-width: 1;
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.86em;
+    -fx-padding: 7 18 7 18;
+    -fx-cursor: hand;
+}
+
+.skin-segmented .segmented-left {
+    -fx-background-radius: 999 0 0 999;
+    -fx-border-radius: 999 0 0 999;
+}
+
+.skin-segmented .segmented-right {
+    -fx-background-radius: 0 999 999 0;
+    -fx-border-radius: 0 999 999 0;
+    -fx-border-width: 1 1 1 0;
+}
+
+.skin-segmented .toggle-button:hover {
+    -fx-text-fill: -sc-text;
+}
+
+.skin-segmented .toggle-button:selected {
+    -fx-background-color: -sc-accent-soft;
+    -fx-text-fill: -sc-accent;
+}
+
+.skin-head-placeholder,
+.skin-sheet-frame,
+.skin-body-frame {
+    -fx-background-color: rgba(0, 0, 0, 0.25);
+    -fx-background-radius: 14;
+    -fx-padding: 14;
+}
+
+.skin-body-row {
+    -fx-alignment: center;
+    -fx-spacing: 14;
+}
+
+.skin-body-figure {
+    -fx-alignment: top-center;
+    -fx-spacing: 8;
+}
+
+.skin-body-caption {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.82em;
+}
+
+.skin-empty-preview {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.88em;
+}
+
+.skin-edit-wrapper {
     -fx-alignment: center;
 }
 
-.startup-progress-track {
-    -fx-background-color: rgba(188, 205, 239, 0.20);
+.skin-edit-overlay {
+    -fx-background-color: rgba(6, 5, 10, 0.55);
+    -fx-background-radius: 14;
+}
+
+.skin-upload-shell {
+    -fx-background-color: transparent;
+    -fx-alignment: center;
+}
+
+.skin-upload-btn,
+.team-upload-btn {
+    -fx-background-color: rgba(255, 255, 255, 0.03);
+    -fx-border-color: rgba(255, 255, 255, 0.16);
+    -fx-border-style: segments(6, 6);
+    -fx-border-width: 1.5;
+    -fx-text-fill: -sc-text-2;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-cursor: hand;
+}
+
+.skin-upload-btn {
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-pref-width: 156;
+    -fx-pref-height: 156;
+    -fx-min-width: 156;
+    -fx-min-height: 156;
+    -fx-max-width: 156;
+    -fx-max-height: 156;
+}
+
+.team-upload-btn {
     -fx-background-radius: 999;
-    -fx-border-color: rgba(177, 199, 238, 0.38);
-    -fx-border-width: 1;
     -fx-border-radius: 999;
+    -fx-pref-width: 112;
+    -fx-pref-height: 112;
+    -fx-min-width: 112;
+    -fx-min-height: 112;
+    -fx-max-width: 112;
+    -fx-max-height: 112;
 }
 
-.startup-progress-fill {
-    -fx-background-color: linear-gradient(to right, #89b5ff 0%, #5f88d4 100%);
+.skin-upload-btn:hover,
+.team-upload-btn:hover {
+    -fx-background-color: -sc-accent-soft;
+    -fx-border-color: rgba(255, 181, 71, 0.6);
+    -fx-text-fill: white;
+}
+
+/* ---------- Equipo ---------- */
+
+.team-root {
+    -fx-alignment: top-center;
+}
+
+.team-heading {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Black";
+    -fx-font-size: 1.5em;
+}
+
+.team-body {
+    -fx-text-fill: -sc-text-2;
+    -fx-font-size: 0.92em;
+}
+
+.team-field-label {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.8em;
+}
+
+.team-icon-edit-wrapper {
+    -fx-alignment: center;
+}
+
+.team-icon-edit-overlay {
+    -fx-background-color: rgba(6, 5, 10, 0.55);
     -fx-background-radius: 999;
 }
 
-.startup-percent {
-    -fx-text-fill: rgba(196, 214, 248, 0.95);
-    -fx-font-size: 0.90em;
+.team-icon-edit-indicator-label {
+    -fx-text-fill: white;
+    -fx-font-size: 0.86em;
+    -fx-font-family: "CeraPro-Bold";
 }
 
-.hover-tip {
-    -fx-background-color: rgba(12, 18, 28, 0.96);
-    -fx-text-fill: rgba(224, 236, 255, 0.97);
-    -fx-border-color: rgba(156, 182, 230, 0.52);
-    -fx-border-width: 1;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-font-size: 0.88em;
-    -fx-padding: 8 10 8 10;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.40), 12, 0.20, 0, 2);
+.team-color-picker {
+    -fx-color-label-visible: false;
+    -fx-pref-width: 54;
+}
+
+.team-color-swatch {
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-border-color: rgba(255, 255, 255, 0.30);
+    -fx-border-width: 1.4;
+    -fx-pref-width: 44;
+    -fx-pref-height: 44;
+    -fx-min-width: 44;
+    -fx-min-height: 44;
+}
+
+.team-color-palette {
+    -fx-max-width: 230;
+    -fx-alignment: center;
+}
+
+.team-palette-btn {
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-border-color: rgba(255, 255, 255, 0.25);
+    -fx-border-width: 1.2;
+    -fx-pref-width: 22;
+    -fx-pref-height: 22;
+    -fx-min-width: 22;
+    -fx-min-height: 22;
+    -fx-max-width: 22;
+    -fx-max-height: 22;
+    -fx-cursor: hand;
+}
+
+.team-palette-btn:hover {
+    -fx-scale-x: 1.12;
+    -fx-scale-y: 1.12;
+}
+
+.team-palette-btn:disabled {
+    -fx-opacity: 0.22;
+    -fx-cursor: default;
+}
+
+.team-validation-error {
+    -fx-text-fill: #ff9aa5;
+    -fx-font-size: 0.84em;
+}
+
+.minecraft-search-field {
+    -fx-font-family: "CeraPro-Medium";
+}
+
+.team-crop-root,
+.team-modal-root {
+    -fx-background-color: -sc-surface-solid;
+    -fx-font-family: "CeraPro-Medium";
+}
+
+.team-crop-viewport {
+    -fx-background-color: rgba(0, 0, 0, 0.5);
+    -fx-border-color: -sc-accent;
+    -fx-border-width: 2;
+}
+
+.team-crop-frame {
+    -fx-fill: transparent;
+    -fx-stroke: -sc-accent;
+    -fx-stroke-width: 2;
+}
+
+.team-crop-circle {
+    -fx-fill: transparent;
+    -fx-stroke: rgba(255, 255, 255, 0.7);
+    -fx-stroke-width: 1.4;
+}
+
+.team-crop-grid-line {
+    -fx-fill: rgba(255, 210, 120, 0.5);
+}
+
+.team-icon-ring {
+    -fx-border-width: 4;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-padding: 5;
+}
+
+.team-icon-inner {
+    -fx-background-color: rgba(255, 255, 255, 0.07);
+    -fx-background-radius: 999;
+}
+
+.team-member-row {
+    -fx-background-color: rgba(255, 255, 255, 0.035);
+    -fx-background-radius: 14;
+    -fx-padding: 10 12 10 12;
+}
+
+.team-member-row:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.06);
+}
+
+.team-member-name {
+    -fx-text-fill: -sc-text;
+    -fx-font-family: "CeraPro-Bold";
+    -fx-font-size: 0.98em;
+}
+
+.team-member-role {
+    -fx-text-fill: -sc-text-3;
+    -fx-font-size: 0.82em;
+}
+
+/* ---------- Optimizar launcher ---------- */
+/* Sin imagen de fondo escalada ni sombras: menos trabajo para la GPU en equipos modestos. */
+
+.perf-mode .app-background {
+    -fx-background-image: null;
+}
+
+.perf-mode .hero-logo,
+.perf-mode .play-btn:hover,
+.perf-mode .modal-card,
+.perf-mode .loading-card,
+.perf-mode .login-card,
+.perf-mode .notifications-shell,
+.perf-mode .toast,
+.perf-mode .settings-action-bar,
+.perf-mode .ram-slider > .thumb {
+    -fx-effect: null;
+}
+
+/* ---------- Minecraft Ten: titulos y botones principales ---------- */
+
+.play-btn,
+.text-btn,
+.login-green-btn,
+.primary-btn,
+.settings-save-btn,
+.team-action-primary,
+.secondary-btn,
+.settings-discard-btn,
+.team-action-secondary,
+.ghost-btn,
+.page-title,
+.team-heading,
+.modal-title,
+.settings-section-title,
+.sc-dialog > .header-panel > .label {
+    -fx-font-family: "Minecraft Ten";
+}
+
+.play-btn {
+    -fx-font-size: 1.2em;
+}
+
+.text-btn {
+    -fx-font-size: 0.95em;
+}
+
+.text-btn-small {
+    -fx-font-size: 0.82em;
+}
+
+.page-title,
+.team-heading {
+    -fx-font-size: 1.75em;
+}
+
+.settings-section-title {
+    -fx-font-size: 1.12em;
 }
