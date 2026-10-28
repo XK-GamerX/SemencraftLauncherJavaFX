@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="es-es" xmlns="http://schemas.microsoft.com/wix/2006/localization" Codepage="1252">
+  <!-- Textos de jpackage -->
+  <String Id="message.install.dir.exist">La carpeta [INSTALLDIR] ya existe. ¿Quieres instalar en esa carpeta de todas formas?</String>
+  <String Id="MainFeatureTitle">Semencraft Launcher</String>
+  <String Id="DowngradeErrorMessage">Ya hay instalada una versión más nueva de [ProductName]. La instalación se cerrará.</String>
+  <String Id="DisallowUpgradeErrorMessage">Ya hay instalada una versión anterior de [ProductName]. La instalación se cerrará.</String>
+
+  <String Id="ShortcutPromptDlg_Title">Instalación de [ProductName]</String>
+  <String Id="ShortcutPromptDlgTitle">{\WixUI_Font_Title}Accesos directos</String>
+  <String Id="ShortcutPromptDlgBannerBitmap">WixUI_Bmp_Banner</String>
+  <String Id="ShortcutPromptDlgDescription">Elige qué accesos directos quieres crear.</String>
+  <String Id="ShortcutPromptDlgDesktopShortcutControlLabel">Crear acceso directo en el escritorio</String>
+  <String Id="ShortcutPromptDlgStartMenuShortcutControlLabel">Crear acceso directo en el menú Inicio</String>
+  <String Id="InstallDirNotEmptyDlg_Title">Instalación de [ProductName]</String>
+  <String Id="ContextMenuCommandLabel">Abrir con [ProductName]</String>
+
+  <!-- Paso "Versión anterior detectada" -->
+  <String Id="SemencraftPrevDlg_Title">Instalación de [ProductName]</String>
+  <String Id="SemencraftPrevDlgTitle">{\WixUI_Font_Title}Versión anterior detectada</String>
+  <String Id="SemencraftPrevDlgDescription">Ya hay un Semencraft Launcher instalado en este equipo.</String>
+  <String Id="SemencraftPrevDlgVersion">Versión instalada: [SEMENCRAFT_PREVIOUS_VERSION]   »   Nueva versión: [ProductVersion]</String>
+  <String Id="SemencraftPrevDlgVersionUnknown">Se encontró una instalación anterior   »   Nueva versión: [ProductVersion]</String>
+  <String Id="SemencraftPrevDlgBody">Para evitar conflictos, el instalador va a desinstalar por completo la versión anterior y después instalará la nueva en la misma carpeta. No hace falta desinstalarla a mano.</String>
+  <String Id="SemencraftPrevDlgData">Tus mundos, configuración, skins, capturas y mods (carpeta %APPDATA%\.semencraft) no se borran.</String>
+  <String Id="SemencraftPrevDlgSteps">Pulsa "Desinstalar e instalar" para continuar, o Cancelar para dejar todo como está.</String>
+  <String Id="SemencraftPrevDlgUninstallButton">&amp;Desinstalar e instalar</String>
+  <String Id="SemencraftLaunchAfterInstall">Iniciar Semencraft Launcher</String>
+  <String Id="SemencraftExitText">Tus mundos, skins y ajustes se conservan. Encontrarás el launcher en el escritorio y en el menú Inicio.</String>
+</WixLocalization>

@@ -60,23 +60,23 @@ final class SplashScreen {
         progressTrack.setMinSize(trackWidth, BAR_HEIGHT);
         progressTrack.setMaxSize(trackWidth, BAR_HEIGHT);
         progressTrack.setAlignment(Pos.CENTER_LEFT);
-        progressTrack.setStyle("-fx-background-color: rgba(255,255,255,0.16);");
+        progressTrack.setStyle("-fx-background-color: rgba(255,255,255,0.10);");
 
         progressFill.setPrefSize(0, BAR_HEIGHT);
         progressFill.setMinSize(0, BAR_HEIGHT);
         progressFill.setMaxHeight(BAR_HEIGHT);
-        progressFill.setStyle("-fx-background-color: #ff5f96;");
+        progressFill.setStyle("-fx-background-color: linear-gradient(to right, #ffc65c, #ff7a3d);");
         progressTrack.getChildren().add(progressFill);
 
         // Franja de texto: fondo oscuro solido, debajo de la barra.
         lblStatus.setStyle(
-                "-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size: 11px;");
+                "-fx-text-fill: #b4aec9; -fx-font-size: 11px; -fx-font-family: 'Segoe UI';");
         HBox textBar = new HBox(lblStatus);
         textBar.setAlignment(Pos.CENTER);
         textBar.setPrefWidth(WIDTH);
         textBar.setMinWidth(WIDTH);
         textBar.setPadding(new Insets(9, 12, 9, 12));
-        textBar.setStyle("-fx-background-color: #0b0b10;");
+        textBar.setStyle("-fx-background-color: #0b0a12;");
 
         VBox card = new VBox(imageView, progressTrack, textBar);
         card.setPrefWidth(WIDTH);

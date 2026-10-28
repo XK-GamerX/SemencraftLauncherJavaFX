@@ -28,6 +28,7 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ComboBoxBase;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
@@ -40,8 +41,8 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.skin.ComboBoxListViewSkin;
-import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -60,11 +61,15 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.FillRule;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.SVGPath;
+import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
 import javax.imageio.ImageIO;
@@ -77,8 +82,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -87,6 +95,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -108,8 +117,6 @@ public class LauncherController {
     @FXML private Button btnNavSkin;
     @FXML private Button btnNavTeam;
     @FXML private Button btnNavSettings;
-    @FXML private Pane semmiePane;
-    @FXML private ImageView imgSemmie;
     @FXML private StackPane currentUserAvatar;
     @FXML private Label lblUsername;
     @FXML private Button btnDiscord;
@@ -118,11 +125,9 @@ public class LauncherController {
     @FXML private StackPane centerRoot;
     @FXML private VBox centerContent;
     @FXML private ImageView imgTitle;
-    @FXML private ImageView imgPlayBtn;
     @FXML private Button btnPlay;
     @FXML private Label lblStatus;
     @FXML private Region titleGap;
-    @FXML private Region statusGap;
     @FXML private VBox skinView;
     @FXML private ScrollPane skinScroll;
     @FXML private VBox skinRoot;
@@ -196,6 +201,22 @@ public class LauncherController {
     @FXML private StackPane login;
     @FXML private LoginController loginController;
 
+    @FXML private Label lblTitleVersion;
+    @FXML private Label lblVersion;
+    @FXML private Label lblUserState;
+    @FXML private Region userStateDot;
+    @FXML private CheckBox chkNotificationSound;
+    @FXML private CheckBox chkPerformanceMode;
+    @FXML private Label lblLauncherVersion;
+    @FXML private Label lblUpdateStatus;
+    @FXML private Button btnCheckUpdates;
+    @FXML private Label lblNotificationsHeaderCount;
+    @FXML private VBox toastLayer;
+    @FXML private StackPane modalLayer;
+    @FXML private Button btnConfigure;
+    @FXML private Button btnModsList;
+    @FXML private HBox userBlock;
+
     private Stage stage;
     private Timeline progressTimeline;
     private Timeline totalIndicatorLoop;
@@ -219,7 +240,6 @@ public class LauncherController {
     private ViewMode viewMode = ViewMode.HOME;
     private final GaussianBlur loginBlurLight = new GaussianBlur(11);
     private final GaussianBlur loginBlurHeavy = new GaussianBlur(18);
-    private final ColorAdjust playDisabledEffect = new ColorAdjust(0.0, -0.12, -0.68, 0.0);
     private final DiscordRpcService discordRpc = new DiscordRpcService();
     private final ModpackManager modpackManager = new ModpackManager();
     private final SupabaseTeamsService teamsService = new SupabaseTeamsService();
@@ -234,9 +254,6 @@ public class LauncherController {
     private final Map<String, Image> entryIconCache = new HashMap<>();
     private final Map<String, Image> minecraftSkinImageCache = new ConcurrentHashMap<>();
     private final Set<String> minecraftSkinLoadsInFlight = ConcurrentHashMap.newKeySet();
-    private Image playImageDefault;
-    private Image playImageHover;
-    private Image playImagePressed;
     private Image modEntryIcon;
     private Image resourcepackEntryIcon;
     private Image teamNavIcon;
@@ -288,13 +305,49 @@ public class LauncherController {
     private boolean notificationBadgeRefreshInFlight;
     private boolean notificationsOpen;
     private boolean skinContextRefreshInFlight;
+    private final LauncherUpdater launcherUpdater = new LauncherUpdater();
+    private final List<LocalNotification> localNotifications = new ArrayList<>();
+    private int unreadLocalNotifications;
+    private int lastAnnouncedUnreadCount = -1;
+    private boolean updateCheckInFlight;
+    private boolean updateInstallInProgress;
+    private long lastProcessScanMs;
+    private boolean lastProcessScanResult;
+    /** Alto de la tarjeta de skin sin contar el modelo 3D (cabecera, botones, margenes). */
+    private static final double SKIN_CARD_CHROME_HEIGHT = 262;
+    /** Radio interior de las cabezas de jugador; debe ir con .minecraft-head-inner en style.css. */
+    private static final double HEAD_INNER_RADIUS = 5;
+    private SkinModelView currentSkinModelView;
+    private TranslateTransition titleFloatTransition;
+    private boolean performanceMode;
+    /** "Optimizar launcher": sin animaciones ni efectos caros. */
+    private static volatile boolean reducedMotion;
 
     private double totalProgress;
     private double downloadProgress;
     private double startupProgressValue;
 
-    private static final int MODS_PAGE_SIZE = 7;
-    private static final double NOTIFICATION_BADGE_POLL_SECONDS = 5.0;
+    private static final int MODS_PAGE_SIZE = 8;
+    private static final double NOTIFICATION_BADGE_POLL_SECONDS = 8.0;
+    private static final long PROCESS_SCAN_INTERVAL_MS = 8_000L;
+    private static final int MAX_LOCAL_NOTIFICATIONS = 12;
+    private static final DateTimeFormatter NOTIFICATION_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("es-ES")).withZone(ZoneId.systemDefault());
+
+    // Iconos vectoriales (caja de 10x10 para ventana, 16x16 para el resto).
+    private static final String ICON_MINIMIZE = "M0 4.5 H10 V5.5 H0 Z";
+    private static final String ICON_MAXIMIZE = "M0 0 H10 V10 H0 Z M1 1 V9 H9 V1 Z";
+    private static final String ICON_RESTORE = "M2 0 H10 V8 H8 V7 H9 V1 H3 V2 H2 Z M0 2 H8 V10 H0 Z M1 3 V9 H7 V3 Z";
+    private static final String ICON_CLOSE = "M0.7 0 L5 4.3 L9.3 0 L10 0.7 L5.7 5 L10 9.3 L9.3 10 L5 5.7 L0.7 10 L0 9.3 L4.3 5 L0 0.7 Z";
+    private static final String ICON_BELL = "M8 1 C5.3 1 3.5 3.1 3.5 5.8 V9 L2 11.2 V12.2 H14 V11.2 L12.5 9 V5.8 C12.5 3.1 10.7 1 8 1 Z M6.1 13.2 C6.3 14.3 7.1 15 8 15 C8.9 15 9.7 14.3 9.9 13.2 Z";
+    // Iconos de 24x24 (estilo Material).
+    private static final String ICON_NAV_HOME = "M12 3.2 L2.5 11.6 H5.4 V20.5 H10 V14.6 H14 V20.5 H18.6 V11.6 H21.5 Z";
+    private static final String ICON_NAV_SKIN = "M4 4 H20 V20 H4 Z M7 9 V12 H10 V9 Z M14 9 V12 H17 V9 Z M9 14 V17 H15 V14 Z";
+    private static final String ICON_NAV_TEAM = "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z";
+    private static final String ICON_NAV_SETTINGS = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+    private static final String ICON_PLAY = "M7 4.5 V19.5 L19.5 12 Z";
+    private static final String ICON_TUNE = "M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z";
+    private static final String ICON_LIST = "M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z";
     private static final List<String> TEAM_COLOR_OPTIONS = List.of(
             "#FF6B6B", "#FF7A63", "#FF8B5E", "#FF9E5E", "#FFB45F", "#FFC862", "#F0D85F", "#D7E25E",
             "#BAE86A", "#94E67B", "#72E08E", "#5AD7A2", "#56D5BA", "#59D2CF", "#60CBE3", "#6BC0F5",
@@ -312,6 +365,17 @@ public class LauncherController {
             "Finalizando inicio...",
             "Listo. Iniciando SemenCraft..."
     };
+
+    /** Notificaciones propias del launcher (actualizaciones, cambios del modpack). */
+    private record LocalNotification(
+            String kind,
+            String title,
+            String body,
+            Instant createdAt,
+            String actionLabel,
+            Runnable action
+    ) {
+    }
 
     private enum ViewMode {
         HOME,
@@ -363,6 +427,7 @@ public class LauncherController {
         setupStageResolver();
         setupResponsiveBindings();
         setupNavButtons();
+        setupWindowButtonIcons();
         setupDiscordButton();
         setupNotificationUi();
         setupLoadingVisuals();
@@ -384,13 +449,12 @@ public class LauncherController {
         startPresenceHeartbeat();
         startPresencePolling();
         animateEntrance();
-        scheduleSemmie();
         updateStartupProgress(0.48, "Preparando recursos...");
-        Platform.runLater(this::applyHeadingFontTheme);
+        applyVersionLabels();
+        refreshUserPresenceUi();
     }
 
     public void setStage(Stage stage) {
-        System.out.println("[DEBUG] setStage() llamado, stage=" + stage);
         this.stage = stage;
         if (stage != null) {
             stage.setOnHidden(event -> shutdownBackgroundServices());
@@ -411,76 +475,6 @@ public class LauncherController {
                 if (newWindow instanceof Stage stageWindow) {
                     this.stage = stageWindow;
                     setupWindowControls();
-                }
-            });
-            newScene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
-                Object t = e.getTarget();
-                String which;
-                if (t == titleBar) {
-                    which = "titleBar (la barra completa)";
-                } else if (t == titleBarDragArea) {
-                    which = "titleBarDragArea (icono+label+espaciador)";
-                } else if (t == btnMinimize) {
-                    which = "btnMinimize";
-                } else if (t == btnMaxRestore) {
-                    which = "btnMaxRestore";
-                } else if (t == btnClose) {
-                    which = "btnClose";
-                } else {
-                    which = "OTRO NODO NO RECONOCIDO";
-                }
-                System.out.println("[DEBUG][SCENE] MOUSE_PRESSED target=" + t
-                        + " clase=" + (t != null ? t.getClass().getName() : "null")
-                        + " identityHash=" + (t != null ? Integer.toHexString(System.identityHashCode(t)) : "null")
-                        + " -> " + which
-                        + " sceneX=" + e.getSceneX() + " sceneY=" + e.getSceneY());
-
-                // DIAGNOSTICO EXTRA: bounds reales de titleBar y del stage/scene en
-                // el momento exacto del click, para saber si hay overlap geometrico
-                // real o si es un problema de escalado/otra cosa.
-                javafx.geometry.Bounds tbScene = titleBar.localToScene(titleBar.getBoundsInLocal());
-                System.out.println("[DEBUG][BOUNDS] titleBar boundsInScene=" + tbScene
-                        + " titleBar.height=" + titleBar.getHeight()
-                        + " titleBar.isManaged=" + titleBar.isManaged()
-                        + " titleBar.isVisible=" + titleBar.isVisible()
-                        + " titleBar.getTranslateY=" + titleBar.getTranslateY()
-                        + " titleBar.getLayoutY=" + titleBar.getLayoutY());
-                if (btnMinimize != null) {
-                    javafx.geometry.Bounds bMin = btnMinimize.localToScene(btnMinimize.getBoundsInLocal());
-                    System.out.println("[DEBUG][BOUNDS] btnMinimize boundsInScene=" + bMin);
-                }
-                if (btnMaxRestore != null) {
-                    javafx.geometry.Bounds bMax = btnMaxRestore.localToScene(btnMaxRestore.getBoundsInLocal());
-                    System.out.println("[DEBUG][BOUNDS] btnMaxRestore boundsInScene=" + bMax);
-                }
-                if (btnClose != null) {
-                    javafx.geometry.Bounds bClose = btnClose.localToScene(btnClose.getBoundsInLocal());
-                    System.out.println("[DEBUG][BOUNDS] btnClose boundsInScene=" + bClose);
-                }
-                if (t instanceof Node n) {
-                    javafx.geometry.Bounds nScene = n.localToScene(n.getBoundsInLocal());
-                    System.out.println("[DEBUG][BOUNDS] targetNode boundsInScene=" + nScene
-                            + " targetNode.getLayoutY=" + n.getLayoutY()
-                            + " targetNode.getTranslateY=" + n.getTranslateY());
-                }
-                System.out.println("[DEBUG][BOUNDS] scene.getWidth=" + newScene.getWidth()
-                        + " scene.getHeight=" + newScene.getHeight()
-                        + " outputScaleX=" + (newScene.getWindow() != null ? newScene.getWindow().getOutputScaleX() : "N/A")
-                        + " outputScaleY=" + (newScene.getWindow() != null ? newScene.getWindow().getOutputScaleY() : "N/A")
-                        + " renderScaleX=" + (newScene.getWindow() != null ? newScene.getWindow().getRenderScaleX() : "N/A")
-                        + " renderScaleY=" + (newScene.getWindow() != null ? newScene.getWindow().getRenderScaleY() : "N/A"));
-                if (t instanceof Node n) {
-                    StringBuilder chain = new StringBuilder("[DEBUG][SCENE] cadena de padres: ");
-                    Node cur = n;
-                    while (cur != null) {
-                        chain.append(cur.getClass().getSimpleName())
-                                .append("(id=").append(cur.getId())
-                                .append(", styleClass=").append(cur.getStyleClass())
-                                .append(", hash=").append(Integer.toHexString(System.identityHashCode(cur)))
-                                .append(") <- ");
-                        cur = cur.getParent();
-                    }
-                    System.out.println(chain);
                 }
             });
         });
@@ -512,9 +506,7 @@ public class LauncherController {
     }
 
     private void setupSidebarGlass() {
-        sidebarBlurLayer.setEffect(new GaussianBlur(56));
-        sidebarBlurLayer.setCache(true);
-        sidebarScroll.setPannable(true);
+        sidebarScroll.setPannable(false);
         sidebarScroll.setFitToHeight(true);
         sidebarScroll.viewportBoundsProperty().addListener((obs, oldV, newV) -> sidebar.setMinHeight(newV.getHeight()));
         Platform.runLater(() -> sidebar.setMinHeight(sidebarScroll.getViewportBounds().getHeight()));
@@ -522,10 +514,7 @@ public class LauncherController {
 
     private void setupWindowControls() {
         Stage resolvedStage = resolveStage();
-        System.out.println("[DEBUG] setupWindowControls() -> resolvedStage=" + resolvedStage
-                + " titleBar=" + titleBar + " windowControlsBound=" + windowControlsBound);
         if (resolvedStage == null || titleBar == null || windowControlsBound) {
-            System.out.println("[DEBUG] setupWindowControls() ABORTA por guard clause.");
             return;
         }
         windowControlsBound = true;
@@ -555,20 +544,11 @@ public class LauncherController {
         button.setMouseTransparent(false);
         button.setPickOnBounds(true);
         button.setFocusTraversable(false);
-        // DIAGNOSTICO: filtro de captura puesto DIRECTAMENTE sobre el boton, sin
-        // consumir nada. Si esto NO imprime nada al hacer click, el evento de mouse
-        // ni siquiera esta llegando al nodo del boton (problema de picking/overlay/
-        // OS), no es un problema de onAction ni de la logica de la app.
-        button.addEventFilter(MouseEvent.MOUSE_PRESSED, e ->
-                System.out.println("[DEBUG][FILTRO-BOTON] MOUSE_PRESSED en " + button.getId()
-                        + " sceneX=" + e.getSceneX() + " sceneY=" + e.getSceneY()
-                        + " screenX=" + e.getScreenX() + " screenY=" + e.getScreenY()));
         // Re-cableamos la accion directamente en Java (ademas del onAction del FXML)
         // para que el boton funcione aunque la vinculacion declarada en el FXML falle
         // por cualquier motivo (por ejemplo, si el jar se empaqueta/ejecuta de forma
         // que la reflexion de FXMLLoader no encuentre el metodo).
         button.setOnAction(event -> {
-            System.out.println("[DEBUG] Click en boton: " + button.getId());
             event.consume();
             if (action != null) {
                 action.run();
@@ -612,8 +592,6 @@ public class LauncherController {
     }
 
     private void onTitleBarClicked(MouseEvent event) {
-        System.out.println("[DEBUG] onTitleBarClicked() target=" + event.getTarget()
-                + " clickCount=" + event.getClickCount());
         if (isWindowControlTarget(event.getTarget()) || event.getClickCount() != 2) {
             return;
         }
@@ -628,15 +606,38 @@ public class LauncherController {
             stage = stageWindow;
             return stageWindow;
         }
-        System.out.println("[DEBUG] resolveStage() -> NULL. titleBar=" + titleBar
-                + " scene=" + (titleBar != null ? titleBar.getScene() : "N/A"));
         return null;
     }
 
     private void updateMaxRestoreButton(boolean maximized) {
         if (btnMaxRestore != null) {
-            btnMaxRestore.setText("□");
+            btnMaxRestore.setText("");
+            btnMaxRestore.setGraphic(svgIcon(maximized ? ICON_RESTORE : ICON_MAXIMIZE));
         }
+    }
+
+    private void setupWindowButtonIcons() {
+        if (btnMinimize != null) {
+            btnMinimize.setText("");
+            btnMinimize.setGraphic(svgIcon(ICON_MINIMIZE));
+        }
+        updateMaxRestoreButton(customMaximized);
+        if (btnClose != null) {
+            btnClose.setText("");
+            btnClose.setGraphic(svgIcon(ICON_CLOSE));
+        }
+        if (btnNotifications != null) {
+            btnNotifications.setText("");
+            btnNotifications.setGraphic(svgIcon(ICON_BELL));
+        }
+    }
+
+    private static SVGPath svgIcon(String content) {
+        SVGPath path = new SVGPath();
+        path.setContent(content);
+        path.setFillRule(FillRule.EVEN_ODD);
+        path.getStyleClass().add("win-icon");
+        return path;
     }
 
     private boolean isWindowControlTarget(Object target) {
@@ -718,42 +719,25 @@ public class LauncherController {
                 return;
             }
 
-            imgLogo.fitHeightProperty().bind(clamp(sidebar.heightProperty().multiply(0.16), 74, 142));
-
-            DoubleBinding semmieSize = clamp(sidebar.heightProperty().multiply(0.2025), 105, 173);
-            imgSemmie.fitWidthProperty().bind(semmieSize);
-            imgSemmie.fitHeightProperty().bind(semmieSize);
-            semmiePane.prefHeightProperty().bind(clamp(sidebar.heightProperty().multiply(0.25), 130, 213));
-
-            imgTitle.fitHeightProperty().bind(clamp(centerLayer.heightProperty().multiply(0.50), 250, 600));
+            imgTitle.fitHeightProperty().bind(clamp(centerLayer.heightProperty().multiply(0.29), 140, 280));
             titleGap.prefHeightProperty().bind(clamp(centerLayer.heightProperty().multiply(0.028), 10, 24));
-            statusGap.prefHeightProperty().bind(clamp(centerLayer.heightProperty().multiply(0.032), 8, 24));
 
-            DoubleBinding playSize = Bindings.createDoubleBinding(() -> {
-                double raw = centerLayer.getHeight() * 0.39;
-                double clamped = Math.max(255.0, Math.min(432.0, raw));
-                return Math.rint(clamped);
-            }, centerLayer.heightProperty());
-            imgPlayBtn.fitWidthProperty().bind(playSize);
-            imgPlayBtn.fitHeightProperty().bind(playSize);
-
-            btnPlay.prefWidthProperty().bind(clamp(centerLayer.widthProperty().multiply(0.442), 299, 507));
-            btnPlay.prefHeightProperty().bind(clamp(centerLayer.heightProperty().multiply(0.143), 75, 109));
 
             DoubleBinding loadTrackWidth = clamp(loadingOverlay.widthProperty().multiply(0.37), 240, 420);
             progressTrackTotal.prefWidthProperty().bind(loadTrackWidth);
             progressTrackDownload.prefWidthProperty().bind(loadTrackWidth);
             timerRow.prefWidthProperty().bind(loadTrackWidth);
 
-            loadingCard.maxWidthProperty().bind(clamp(loadingOverlay.widthProperty().multiply(0.58), 340, 580));
-            imgLoadTitle.fitHeightProperty().bind(clamp(loadingOverlay.heightProperty().multiply(0.17), 90, 164));
+            loadingCard.maxWidthProperty().bind(clamp(loadingOverlay.widthProperty().multiply(0.50), 360, 520));
+            loadingCard.setMaxHeight(Region.USE_PREF_SIZE);
+            imgLoadTitle.fitHeightProperty().bind(clamp(loadingOverlay.heightProperty().multiply(0.11), 64, 96));
             if (startupProgressTrack != null && startupOverlay != null) {
                 startupProgressTrack.prefWidthProperty().bind(clamp(startupOverlay.widthProperty().multiply(0.26), 190, 310));
                 startupProgressTrack.widthProperty().addListener((obs, oldV, newV) -> updateStartupProgress(startupProgressValue, null));
             }
 
             if (settingsRoot != null) {
-                settingsRoot.maxWidthProperty().bind(clamp(centerLayer.widthProperty().subtract(24), 760, 1400));
+                settingsRoot.maxWidthProperty().bind(clamp(centerLayer.widthProperty().subtract(24), 760, 1180));
             }
             if (teamRoot != null) {
                 teamRoot.maxWidthProperty().bind(clamp(centerLayer.widthProperty().subtract(24), 760, 1360));
@@ -765,25 +749,16 @@ public class LauncherController {
         clipToBounds(progressTrackTotal);
         clipToBounds(progressTrackDownload);
 
-        applyProgressFallbackStyle(progressFillTotal,
-                "-fx-background-color: linear-gradient(to right, #6ea8ff 0%, #4d78d5 100%); -fx-background-radius: 999;");
-        applyProgressFallbackStyle(progressFillDownload,
-                "-fx-background-color: linear-gradient(to right, #f3b56b 0%, #d68636 100%); -fx-background-radius: 999;");
-        applyProgressFallbackStyle(progressIndTotal,
-                "-fx-background-color: rgba(236, 244, 255, 0.95); -fx-background-radius: 999;");
-        applyProgressFallbackStyle(progressIndDownload,
-                "-fx-background-color: rgba(255, 240, 220, 0.95); -fx-background-radius: 999;");
-
         progressFillTotal.setManaged(true);
         progressFillDownload.setManaged(true);
         progressFillTotal.setVisible(true);
         progressFillDownload.setVisible(true);
-        progressFillTotal.setMinHeight(8);
-        progressFillTotal.setPrefHeight(8);
-        progressFillTotal.setMaxHeight(8);
-        progressFillDownload.setMinHeight(8);
-        progressFillDownload.setPrefHeight(8);
-        progressFillDownload.setMaxHeight(8);
+        progressFillTotal.setMinHeight(6);
+        progressFillTotal.setPrefHeight(6);
+        progressFillTotal.setMaxHeight(6);
+        progressFillDownload.setMinHeight(6);
+        progressFillDownload.setPrefHeight(6);
+        progressFillDownload.setMaxHeight(6);
         setRegionWidth(progressFillTotal, 0.0);
         setRegionWidth(progressFillDownload, 0.0);
 
@@ -793,12 +768,12 @@ public class LauncherController {
         progressIndDownload.setManaged(true);
         progressIndTotal.setVisible(true);
         progressIndDownload.setVisible(true);
-        progressIndTotal.setMinSize(74, 8);
-        progressIndTotal.setPrefSize(74, 8);
-        progressIndTotal.setMaxSize(74, 8);
-        progressIndDownload.setMinSize(74, 8);
-        progressIndDownload.setPrefSize(74, 8);
-        progressIndDownload.setMaxSize(74, 8);
+        progressIndTotal.setMinSize(74, 6);
+        progressIndTotal.setPrefSize(74, 6);
+        progressIndTotal.setMaxSize(74, 6);
+        progressIndDownload.setMinSize(74, 6);
+        progressIndDownload.setPrefSize(74, 6);
+        progressIndDownload.setMaxSize(74, 6);
         progressIndTotal.setTranslateX(-120);
         progressIndDownload.setTranslateX(-120);
 
@@ -813,20 +788,6 @@ public class LauncherController {
         totalProgress = 0.0;
         downloadProgress = 0.0;
         updateProgressBars();
-    }
-
-    private static void applyProgressFallbackStyle(Region region, String style) {
-        if (region == null || style == null || style.isBlank()) {
-            return;
-        }
-        String existing = region.getStyle();
-        if (existing == null || existing.isBlank()) {
-            region.setStyle(style);
-            return;
-        }
-        if (!existing.contains("-fx-background-color")) {
-            region.setStyle(existing + " " + style);
-        }
     }
 
     private static void clipToBounds(Region region) {
@@ -909,6 +870,8 @@ public class LauncherController {
             if (startupProgressListener != null) {
                 startupProgressListener.onReady();
             }
+            delay(700, () -> announceCatalogChanges(false));
+            delay(1600, this::checkForLauncherUpdateOnStartup);
         });
     }
 
@@ -916,7 +879,12 @@ public class LauncherController {
         loggedIn = true;
         lblUsername.setText(username);
         refreshCurrentUserAvatar();
-        LauncherStorage.saveCredentials(username);
+        refreshUserPresenceUi();
+        if (loginController == null || loginController.isRememberMe()) {
+            LauncherStorage.saveCredentials(username);
+        } else {
+            LauncherStorage.forgetCredentials();
+        }
         refreshLauncherRuntimeStateUi();
         refreshTeamContextAsync();
         refreshSkinContextAsync();
@@ -1187,16 +1155,24 @@ public class LauncherController {
                 return true;
             }
             minecraftProcess = null;
+            lastProcessScanMs = 0L;
         }
 
+        // Recorrer todos los procesos de Windows es caro: como mucho una vez cada 8 s.
+        long now = System.currentTimeMillis();
+        if (now - lastProcessScanMs < PROCESS_SCAN_INTERVAL_MS) {
+            return lastProcessScanResult;
+        }
+        lastProcessScanMs = now;
         String gameDirLower = normalizedMinecraftDirLower();
         try {
-            return ProcessHandle.allProcesses()
+            lastProcessScanResult = ProcessHandle.allProcesses()
                     .filter(ProcessHandle::isAlive)
                     .anyMatch(process -> isLikelyMinecraftProcess(process, gameDirLower));
         } catch (Exception ignored) {
-            return false;
+            lastProcessScanResult = false;
         }
+        return lastProcessScanResult;
     }
 
     private boolean isLikelyMinecraftProcess(ProcessHandle process, String gameDirLower) {
@@ -1238,6 +1214,11 @@ public class LauncherController {
     }
 
     private void refreshLauncherRuntimeStateUi() {
+        applyLauncherRuntimeState();
+        refreshUserPresenceUi();
+    }
+
+    private void applyLauncherRuntimeState() {
         applyPlayAvailability();
         if (launchInProgress) {
             return;
@@ -1267,16 +1248,10 @@ public class LauncherController {
 
     private void applyPlayAvailability() {
         boolean blocked = launchInProgress || minecraftRunning;
-        if (imgPlayBtn != null) {
-            imgPlayBtn.setMouseTransparent(blocked);
-            imgPlayBtn.setDisable(blocked);
-            imgPlayBtn.setOpacity(blocked ? 0.50 : 1.0);
-            imgPlayBtn.setEffect(blocked ? playDisabledEffect : null);
-            imgPlayBtn.setCursor(blocked ? Cursor.DEFAULT : Cursor.HAND);
-        }
         if (btnPlay != null) {
             btnPlay.setDisable(blocked);
             btnPlay.setCursor(blocked ? Cursor.DEFAULT : Cursor.HAND);
+            btnPlay.setText(minecraftRunning ? "EN JUEGO" : (launchInProgress ? "INICIANDO..." : "JUGAR"));
         }
     }
 
@@ -1322,12 +1297,18 @@ public class LauncherController {
     }
 
     private void loadImages() {
+        // El logo grande solo va en Inicio; en los lugares chicos va el logo textual.
         Image logo = loadAsset("title.png");
         if (logo != null) {
-            imgLogo.setImage(logo);
             imgTitle.setImage(logo);
-            imgLoadTitle.setImage(logo);
-            imgTitle.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.70), 34, 0.26, 0, 9);");
+        }
+        Image wordmark = loadAsset("logo-semencraft.png");
+        if (wordmark != null) {
+            imgLoadTitle.setImage(wordmark);
+        }
+        Image railLogo = loadAsset("icon.png");
+        if (railLogo != null) {
+            imgLogo.setImage(railLogo);
         }
 
         Image launcherIcon = loadAssetAny(
@@ -1339,51 +1320,17 @@ public class LauncherController {
             imgTitleBarIcon.setImage(launcherIcon);
         }
 
-        Image semmie = loadAsset("scezmir.gif");
-        if (semmie == null) {
-            semmie = loadAsset("semmie.png");
-        }
-        if (semmie == null) {
-            semmie = loadAsset("semmie.webp");
-        }
-        if (semmie != null) {
-            imgSemmie.setImage(semmie);
+        Image bookImage = loadAsset("book.png");
+        if (bookImage != null && imgNotificationsBook != null) {
+            imgNotificationsBook.setImage(bookImage);
         }
 
-        playImageDefault = loadAsset("jugar.png");
-        playImageHover = loadAsset("jugar_hover.png");
-        playImagePressed = loadAsset("jugar_clicked.png");
         teamNavIcon = loadAsset("team.png");
         bellIcon = loadAsset("bell.png");
         cameraIcon = loadAsset("camera.png");
         crownIcon = loadAsset("crown.png");
         editIcon = loadAsset("edit.png");
         steveSkinAsset = loadAsset("steve_skin.png");
-        Image bookImage = loadAsset("book.png");
-        if (bookImage != null && imgNotificationsBook != null) {
-            imgNotificationsBook.setImage(bookImage);
-            imgNotificationsBook.setSmooth(false);
-            imgNotificationsBook.setCache(false);
-        }
-        if (playImageHover == null) {
-            playImageHover = playImageDefault;
-        }
-        if (playImagePressed == null) {
-            playImagePressed = playImageDefault;
-        }
-
-        if (playImageDefault != null) {
-            imgPlayBtn.setImage(playImageDefault);
-            imgPlayBtn.setSmooth(false);
-            imgPlayBtn.setCache(false);
-            imgPlayBtn.setTranslateY(6);
-            imgPlayBtn.setVisible(true);
-            imgPlayBtn.setManaged(true);
-            imgPlayBtn.setCursor(Cursor.HAND);
-            attachPlayHover(imgPlayBtn);
-            btnPlay.setVisible(false);
-            btnPlay.setManaged(false);
-        }
     }
 
     static Image loadAsset(String name) {
@@ -1442,146 +1389,81 @@ public class LauncherController {
                 new KeyValue(node.translateYProperty(), 0.0, Interpolator.SPLINE(0.25, 0.8, 0.25, 1.0))
         ));
         node.setOnMouseEntered(event -> {
+            if (reducedMotion) {
+                return;
+            }
             exit.stop();
             enter.playFromStart();
         });
         node.setOnMouseExited(event -> {
-            enter.stop();
-            exit.playFromStart();
-        });
-    }
-
-    private void attachPlayHover(ImageView playNode) {
-        playNode.setOnMouseEntered(event -> {
-            playNode.setImage(playImageHover != null ? playImageHover : playImageDefault);
-        });
-        playNode.setOnMouseExited(event -> {
-            playNode.setImage(playImageDefault);
-        });
-        playNode.setOnMousePressed(event -> {
-            playNode.setImage(playImagePressed != null ? playImagePressed : playImageDefault);
-        });
-        playNode.setOnMouseReleased(event -> {
-            playNode.setImage(playNode.isHover() ? playImageHover : playImageDefault);
-        });
-        playNode.setOnMouseClicked(event -> onPlay());
-    }
-
-    private static void attachSlideHover(Node node) {
-        Timeline enter = new Timeline(new KeyFrame(Duration.millis(160),
-                new KeyValue(node.translateXProperty(), 5.0, Interpolator.SPLINE(0.25, 0.8, 0.25, 1.0))));
-        Timeline exit = new Timeline(new KeyFrame(Duration.millis(200),
-                new KeyValue(node.translateXProperty(), 0.0, Interpolator.SPLINE(0.25, 0.8, 0.25, 1.0))));
-        node.setOnMouseEntered(event -> {
-            exit.stop();
-            enter.playFromStart();
-        });
-        node.setOnMouseExited(event -> {
+            if (reducedMotion) {
+                return;
+            }
             enter.stop();
             exit.playFromStart();
         });
     }
 
     private void setupNavButtons() {
-        applyNavIcon(btnNavHome, "icon.png", "  Inicio");
-        applyNavIcon(btnNavSkin, "shirt.png", "  Skin");
-        applyNavIcon(btnNavTeam, "team.png", "  Tu equipo");
-        applyNavIcon(btnNavSettings, "configurations.png", "  Configuracion");
+        applyNavIcon(btnNavHome, ICON_NAV_HOME, "Inicio");
+        applyNavIcon(btnNavSkin, ICON_NAV_SKIN, "Skin");
+        applyNavIcon(btnNavTeam, ICON_NAV_TEAM, "Tu equipo");
+        applyNavIcon(btnNavSettings, ICON_NAV_SETTINGS, "Configuración");
+        applyButtonIcon(btnPlay, ICON_PLAY, "btn-icon");
+        applyButtonIcon(btnConfigure, ICON_TUNE, "btn-icon");
+        applyButtonIcon(btnModsList, ICON_LIST, "btn-icon");
+        if (userBlock != null) {
+            userBlock.setCursor(Cursor.HAND);
+            userBlock.setOnMouseClicked(event -> onSkin());
+            Tooltip.install(userBlock, sideTooltip("Ver mi skin"));
+        }
 
         for (Button button : new Button[]{btnNavHome, btnNavSkin, btnNavTeam, btnNavSettings}) {
-            attachSlideHover(button);
+            attachSmoothHover(button, 1.06, 0);
         }
     }
 
-    private void applyNavIcon(Button btn, String asset, String label) {
-        Image img = loadAsset(asset);
-        if (img != null) {
-            btn.setGraphic(makeIcon(img, 26));
-            btn.setGraphicTextGap(12);
+    private void applyNavIcon(Button btn, String svgContent, String label) {
+        if (btn == null) {
+            return;
         }
+        SVGPath icon = svgIcon(svgContent);
+        icon.getStyleClass().setAll("nav-icon");
+        btn.setGraphic(icon);
         btn.setText(label);
-        applyHeadingFont(btn);
+        btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        btn.setTooltip(sideTooltip(label));
+    }
+
+    private static void applyButtonIcon(Button btn, String svgContent, String styleClass) {
+        if (btn == null) {
+            return;
+        }
+        SVGPath icon = svgIcon(svgContent);
+        icon.getStyleClass().setAll(styleClass);
+        btn.setGraphic(icon);
+        btn.setGraphicTextGap(8);
+    }
+
+    private static Tooltip sideTooltip(String text) {
+        Tooltip tip = new Tooltip(text);
+        tip.setShowDelay(Duration.millis(250));
+        tip.setHideDelay(Duration.millis(60));
+        return tip;
     }
 
     private void setupDiscordButton() {
         Image img = loadAsset("discord.png");
         if (img != null) {
-            btnDiscord.setGraphic(makeIcon(img, 22));
-            btnDiscord.setGraphicTextGap(12);
+            btnDiscord.setGraphic(makeIcon(img, 14));
+            btnDiscord.setGraphicTextGap(8);
         }
-        btnDiscord.setText("  Discord Oficial");
-        applyHeadingFont(btnDiscord);
-        attachSmoothHover(btnDiscord, 1.02, -2);
-    }
-
-    private void applyHeadingFontTheme() {
-        applyHeadingFontRecursively(sidebar);
-        applyHeadingFontRecursively(centerLayer);
-        applyHeadingFontRecursively(login);
-    }
-
-    private void applyHeadingFontRecursively(Node node) {
-        if (node == null) {
-            return;
-        }
-        if (node instanceof ButtonBase buttonBase) {
-            applyHeadingFont(buttonBase);
-        } else if (node instanceof Labeled labeled && shouldUseHeadingFont(labeled)) {
-            applyHeadingFont(labeled);
-        }
-        if (node instanceof Parent parent) {
-            for (Node child : parent.getChildrenUnmodifiable()) {
-                applyHeadingFontRecursively(child);
-            }
-        }
-    }
-
-    private boolean shouldUseHeadingFont(Labeled labeled) {
-        List<String> classes = labeled.getStyleClass();
-        return classes.contains("section-label")
-                || classes.contains("username-label")
-                || classes.contains("notification-meta");
-    }
-
-    private void applyHeadingFont(Labeled labeled) {
-        if (labeled == null || MainApp.HEADING_FONT_FAMILY == null || MainApp.HEADING_FONT_FAMILY.isBlank()) {
-            return;
-        }
-        String safeFamily = MainApp.HEADING_FONT_FAMILY.replace("'", "\\'");
-        String style = labeled.getStyle() == null ? "" : labeled.getStyle().trim();
-        if (!style.isBlank() && !style.endsWith(";")) {
-            style += ";";
-        }
-        labeled.setStyle(style + "-fx-font-family: '" + safeFamily + "';");
-    }
-
-    private void applyHeadingFont(Control control) {
-        applyControlFont(control, MainApp.HEADING_FONT_FAMILY);
-    }
-
-    private void applyBodyFont(Control control) {
-        applyControlFont(control, MainApp.FONT_FAMILY);
-    }
-
-    private void applyControlFont(Control control, String fontFamily) {
-        if (control == null || fontFamily == null || fontFamily.isBlank()) {
-            return;
-        }
-        String safeFamily = fontFamily.replace("'", "\\'");
-        String style = control.getStyle() == null ? "" : control.getStyle().trim();
-        if (!style.isBlank() && !style.endsWith(";")) {
-            style += ";";
-        }
-        control.setStyle(style + "-fx-font-family: '" + safeFamily + "';");
+        btnDiscord.setText("DISCORD");
     }
 
     private void setupNotificationUi() {
         if (btnNotifications != null) {
-            if (bellIcon != null) {
-                btnNotifications.setGraphic(makeIcon(bellIcon, 24));
-            }
-            btnNotifications.setText("");
-            attachSmoothHover(btnNotifications, 1.03, -2);
+            attachSmoothHover(btnNotifications, 1.04, -1);
         }
         if (notificationBadge != null) {
             notificationBadge.setVisible(false);
@@ -1594,7 +1476,7 @@ public class LauncherController {
         }
         if (notificationsScroll != null) {
             notificationsScroll.setFitToWidth(true);
-            notificationsScroll.setPannable(true);
+            notificationsScroll.setPannable(false);
         }
         startNotificationBadgePolling();
         refreshNotificationBadgeAsync();
@@ -1604,7 +1486,8 @@ public class LauncherController {
     private void setupSkinView() {
         if (skinScroll != null) {
             skinScroll.setFitToWidth(true);
-            skinScroll.setPannable(true);
+            skinScroll.setPannable(false);
+            skinScroll.viewportBoundsProperty().addListener((obs, oldBounds, newBounds) -> fitSkinModelToViewport());
         }
         if (skinView != null) {
             skinView.setVisible(false);
@@ -1616,7 +1499,7 @@ public class LauncherController {
     private void setupTeamView() {
         if (teamScroll != null) {
             teamScroll.setFitToWidth(true);
-            teamScroll.setPannable(true);
+            teamScroll.setPannable(false);
         }
         if (teamView != null) {
             teamView.setVisible(false);
@@ -1632,7 +1515,7 @@ public class LauncherController {
         resourcepackEntryIcon = loadAsset("circular-blue.png");
 
         if (settingsScroll != null) {
-            settingsScroll.setPannable(true);
+            settingsScroll.setPannable(false);
             settingsScroll.setFitToWidth(true);
         }
         if (settingsView != null) {
@@ -1672,7 +1555,7 @@ public class LauncherController {
         persistedConfig = LauncherStorage.loadConfig();
         applyConfigToControls(persistedConfig);
         registerSettingsDirtyListeners();
-        installSettingsTooltips();
+        setupRamSliderFill();
         loadModpackCatalogAsync();
         refreshJavaRuntimeStatusAsync();
         applySettingsSection(SettingsSection.GENERAL, false);
@@ -1681,40 +1564,6 @@ public class LauncherController {
             lblSettingsStatus.setOpacity(0.0);
             lblSettingsStatus.setText("");
         }
-    }
-
-    private void installSettingsTooltips() {
-        installSideTooltip(chkBorderlessWindow, "Quita bordes de la ventana para un look mas limpio.");
-        installSideTooltip(chkCloseLauncherOnStart, "Si se activa, el launcher se cierra al abrir Minecraft.");
-        installSideTooltip(chkDiscordRpc, "Activa/desactiva Discord Rich Presence para el launcher.");
-        installSideTooltip(cmbModpack, "Normal: todo activado. Optimizada: rendimiento recomendado. Custom: cambios manuales.");
-        installSideTooltip(cmbLaunchMode, "Selecciona como se abrira el juego al iniciar.");
-        installSideTooltip(txtResolution, "Formato recomendado: ancho x alto, por ejemplo 1280x720.");
-        installSideTooltip(sliderRam, "Asigna memoria al juego. No uses mas de lo que tu PC soporta.");
-        installSideTooltip(txtModSearch, "Busca por nombre interno del mod leyendo metadata del .jar.");
-    }
-
-    private static void installSideTooltip(Control control, String text) {
-        if (control == null || text == null || text.isBlank()) {
-            return;
-        }
-        Tooltip tip = new Tooltip(text);
-        tip.getStyleClass().add("hover-tip");
-        tip.setShowDelay(Duration.millis(110));
-        tip.setHideDelay(Duration.millis(80));
-
-        control.hoverProperty().addListener((obs, oldV, hovering) -> {
-            if (!hovering || control.getScene() == null || control.getScene().getWindow() == null) {
-                tip.hide();
-                return;
-            }
-            Point2D side = control.localToScreen(control.getWidth() + 12, control.getHeight() * 0.45);
-            if (side != null) {
-                tip.show(control, side.getX(), side.getY());
-            }
-        });
-
-        control.sceneProperty().addListener((obs, oldScene, newScene) -> tip.hide());
     }
 
     private static void installComboPopupAnimation(ComboBox<?> combo) {
@@ -1729,6 +1578,9 @@ public class LauncherController {
         combo.getProperties().put("popup-close-allow-hide", Boolean.FALSE);
 
         combo.addEventFilter(ComboBoxBase.ON_HIDING, event -> {
+            if (reducedMotion) {
+                return;
+            }
             if (Boolean.TRUE.equals(combo.getProperties().get("popup-close-allow-hide"))) {
                 combo.getProperties().put("popup-close-allow-hide", Boolean.FALSE);
                 return;
@@ -1762,6 +1614,9 @@ public class LauncherController {
         });
 
         combo.showingProperty().addListener((obs, wasShowing, isShowing) -> {
+            if (reducedMotion) {
+                return;
+            }
             if (isShowing) {
                 Timeline pulse = new Timeline(
                         new KeyFrame(Duration.ZERO, new KeyValue(combo.scaleXProperty(), 1.0), new KeyValue(combo.scaleYProperty(), 1.0)),
@@ -1857,6 +1712,12 @@ public class LauncherController {
                 applyDiscordRpcPreference(Boolean.TRUE.equals(newV));
             });
         }
+        if (chkNotificationSound != null) {
+            chkNotificationSound.selectedProperty().addListener((obs, oldV, newV) -> onSettingsEdited());
+        }
+        if (chkPerformanceMode != null) {
+            chkPerformanceMode.selectedProperty().addListener((obs, oldV, newV) -> onSettingsEdited());
+        }
         if (txtModSearch != null) {
             txtModSearch.textProperty().addListener((obs, oldV, newV) -> {
                 modsPageIndex = 0;
@@ -1897,6 +1758,13 @@ public class LauncherController {
         if (chkDiscordRpc != null) {
             chkDiscordRpc.setSelected(config.discordRpcEnabled());
         }
+        if (chkNotificationSound != null) {
+            chkNotificationSound.setSelected(config.notificationSound());
+        }
+        if (chkPerformanceMode != null) {
+            chkPerformanceMode.setSelected(config.performanceMode());
+        }
+        applyPerformanceMode(config.performanceMode());
         rpcEnabledByUser = config.discordRpcEnabled();
         applyDiscordRpcPreference(rpcEnabledByUser);
         settingsWatchEnabled = true;
@@ -1926,7 +1794,10 @@ public class LauncherController {
         boolean borderless = chkBorderlessWindow != null && chkBorderlessWindow.isSelected();
         boolean closeLauncher = chkCloseLauncherOnStart != null && chkCloseLauncherOnStart.isSelected();
         boolean discordRpc = chkDiscordRpc == null || chkDiscordRpc.isSelected();
-        return new LauncherStorage.LauncherConfig(modpack, ram, mode, resolution, borderless, closeLauncher, discordRpc);
+        boolean notificationSound = chkNotificationSound == null || chkNotificationSound.isSelected();
+        boolean optimized = chkPerformanceMode != null && chkPerformanceMode.isSelected();
+        return new LauncherStorage.LauncherConfig(modpack, ram, mode, resolution, borderless, closeLauncher,
+                discordRpc, notificationSound, optimized);
     }
 
     private void refreshSaveState() {
@@ -1962,7 +1833,6 @@ public class LauncherController {
                     slideY(settingsActionBar, 0.0, 220)
             );
             in.play();
-            startActionButtonsFloatAnimation();
             return;
         }
         stopActionButtonsFloatAnimation();
@@ -1977,26 +1847,6 @@ public class LauncherController {
             settingsActionBar.setTranslateY(0.0);
         });
         out.play();
-    }
-
-    private void startActionButtonsFloatAnimation() {
-        if (btnSaveSettings == null || btnDiscardSettings == null) {
-            return;
-        }
-        stopActionButtonsFloatAnimation();
-        actionButtonsFloatTimeline = new Timeline(
-                new KeyFrame(Duration.ZERO,
-                        new KeyValue(btnSaveSettings.translateYProperty(), 0.0),
-                        new KeyValue(btnDiscardSettings.translateYProperty(), 0.0)),
-                new KeyFrame(Duration.millis(900),
-                        new KeyValue(btnSaveSettings.translateYProperty(), -2.5),
-                        new KeyValue(btnDiscardSettings.translateYProperty(), -2.5)),
-                new KeyFrame(Duration.millis(1800),
-                        new KeyValue(btnSaveSettings.translateYProperty(), 0.0),
-                        new KeyValue(btnDiscardSettings.translateYProperty(), 0.0))
-        );
-        actionButtonsFloatTimeline.setCycleCount(Animation.INDEFINITE);
-        actionButtonsFloatTimeline.play();
     }
 
     private void stopActionButtonsFloatAnimation() {
@@ -2048,6 +1898,11 @@ public class LauncherController {
     private void loadModpackCatalogAsync() {
         setModListMessage("Cargando modpack...");
         updateStartupProgress(0.56, "Cargando modpacks desde GitHub...");
+        modpackManager.setSyncProgressListener((status, fraction) -> Platform.runLater(() -> {
+            if (!startupCatalogReady) {
+                updateStartupProgress(0.56 + 0.20 * fraction, status);
+            }
+        }));
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -2149,7 +2004,6 @@ public class LauncherController {
         button.setSelected(selected);
         button.setFocusTraversable(false);
         button.setOnAction(event -> onToggle.run());
-        applyHeadingFont(button);
         return button;
     }
 
@@ -2248,7 +2102,6 @@ public class LauncherController {
 
         Label name = new Label(entry.displayName());
         name.getStyleClass().add("resourcepack-item-name");
-        applyHeadingFont(name);
         name.setMaxWidth(Double.MAX_VALUE);
         name.setTextOverrun(OverrunStyle.ELLIPSIS);
         name.setWrapText(false);
@@ -2282,7 +2135,6 @@ public class LauncherController {
             moveUp.setOnAction(event -> moveResourcepackSelection(index, -1));
             moveUp.setMaxWidth(Double.MAX_VALUE);
             moveUp.setMinWidth(96);
-            applyHeadingFont(moveUp);
 
             Button moveDown = new Button("Bajar");
             moveDown.getStyleClass().add("resourcepack-order-btn");
@@ -2290,14 +2142,12 @@ public class LauncherController {
             moveDown.setOnAction(event -> moveResourcepackSelection(index, 1));
             moveDown.setMaxWidth(Double.MAX_VALUE);
             moveDown.setMinWidth(96);
-            applyHeadingFont(moveDown);
 
             Button remove = new Button("Quitar");
             remove.getStyleClass().addAll("resourcepack-toggle-btn", "resourcepack-remove-btn");
             remove.setOnAction(event -> removeResourcepackFromSelection(entry.id()));
             remove.setMaxWidth(Double.MAX_VALUE);
             remove.setMinWidth(96);
-            applyHeadingFont(remove);
 
             actions.getChildren().addAll(moveUp, moveDown, remove);
         } else {
@@ -2306,7 +2156,6 @@ public class LauncherController {
             add.setOnAction(event -> addResourcepackToSelection(entry.id()));
             add.setMaxWidth(Double.MAX_VALUE);
             add.setMinWidth(88);
-            applyHeadingFont(add);
             actions.getChildren().add(add);
         }
 
@@ -2430,9 +2279,9 @@ public class LauncherController {
         row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
         Image icon = resolveEntryIcon(entry);
-        ImageView iconView = makeIcon(icon, 30);
-        iconView.setFitHeight(30);
-        iconView.setFitWidth(30);
+        ImageView iconView = makeIcon(icon, 36);
+        iconView.setFitHeight(36);
+        iconView.setFitWidth(36);
 
         Label lblName = new Label(entry.displayName());
         lblName.getStyleClass().add("mod-item-name");
@@ -2444,16 +2293,11 @@ public class LauncherController {
         VBox textCol = new VBox(2, lblName, lblFile, lblSection);
         HBox.setHgrow(textCol, Priority.ALWAYS);
 
-        ToggleButton toggle = new ToggleButton();
-        toggle.getStyleClass().add("mod-toggle-btn");
-        boolean enabled = workingModSelection != null && workingModSelection.isEnabled(entry.id());
-        toggle.setSelected(enabled);
-        toggle.setText(enabled ? "Activado" : "Desactivado");
-        toggle.setOnAction(event -> {
-            boolean nextValue = toggle.isSelected();
-            toggle.setText(nextValue ? "Activado" : "Desactivado");
-            applyModEntryToggle(entry, nextValue);
-        });
+        CheckBox toggle = new CheckBox();
+        toggle.getStyleClass().add("switch");
+        toggle.setFocusTraversable(false);
+        toggle.setSelected(workingModSelection != null && workingModSelection.isEnabled(entry.id()));
+        toggle.selectedProperty().addListener((obs, oldV, newV) -> applyModEntryToggle(entry, newV));
 
         row.getChildren().addAll(iconView, textCol, toggle);
         return row;
@@ -2521,7 +2365,7 @@ public class LauncherController {
     private void updateModPaginationState() {
         int totalPages = Math.max(1, (int) Math.ceil(filteredModEntries.size() / (double) MODS_PAGE_SIZE));
         if (lblModsPage != null) {
-            lblModsPage.setText("Pagina " + (modsPageIndex + 1) + "/" + totalPages);
+            lblModsPage.setText("Página " + (modsPageIndex + 1) + "/" + totalPages);
         }
         if (lblModsCount != null) {
             lblModsCount.setText(filteredModEntries.size() + " elemento(s)");
@@ -2590,12 +2434,13 @@ public class LauncherController {
             List<String> currentResourcepackSelection = normalizeResourcepackSelection(workingResourcepackSelection);
             LauncherStorage.saveConfig(currentConfig);
             persistedConfig = currentConfig;
+            applyPerformanceMode(currentConfig.performanceMode());
 
             if (currentSelection != null) {
                 persistedModSelection = currentSelection;
                 workingModSelection = currentSelection;
                 if (ModpackManager.TEMPLATE_CUSTOM.equals(currentSelection.selectedTemplate())) {
-                    modpackManager.saveCustomSelection(currentSelection);
+                    modpackManager.saveCustomSelection(modpackCatalog, currentSelection);
                 }
             }
             persistedResourcepackSelection = List.copyOf(currentResourcepackSelection);
@@ -2740,8 +2585,11 @@ public class LauncherController {
     }
 
     private void animateEntrance() {
+        if (reducedMotion) {
+            return;
+        }
         Node sideNode = sidebarGlass != null ? sidebarGlass : sidebarScroll;
-        sideNode.setTranslateX(-230);
+        sideNode.setTranslateX(-72);
         sideNode.setOpacity(0);
 
         centerContent.setOpacity(0);
@@ -2758,47 +2606,24 @@ public class LauncherController {
     }
 
     private void startTitleFloat() {
-        TranslateTransition transition = new TranslateTransition(Duration.seconds(3.6), imgTitle);
-        transition.setByY(-10);
-        transition.setAutoReverse(true);
-        transition.setCycleCount(Animation.INDEFINITE);
-        transition.setInterpolator(Interpolator.EASE_BOTH);
-        transition.play();
-    }
-
-    private void scheduleSemmie() {
-        delay(2600, this::semmieLoop);
-    }
-
-    private void semmieLoop() {
-        walkSemmie();
-        delay(60_000, this::semmieLoop);
-    }
-
-    private void walkSemmie() {
-        double width = semmiePane.getWidth() > 0 ? semmiePane.getWidth() : 240;
-        imgSemmie.setLayoutX(-90);
-        imgSemmie.setTranslateX(0);
-
-        // Reload the gif into a fresh Image so its animation restarts from frame 0
-        // every time Semmie appears, instead of continuing from wherever it was.
-        Image freshSemmie = loadAsset("scezmir.gif");
-        if (freshSemmie != null) {
-            imgSemmie.setImage(freshSemmie);
+        if (reducedMotion || imgTitle == null) {
+            return;
         }
-
-        TranslateTransition transition = new TranslateTransition(Duration.seconds(5.2), imgSemmie);
-        transition.setFromX(0);
-        transition.setToX(width + 110);
-        transition.setInterpolator(Interpolator.LINEAR);
-        transition.setOnFinished(event -> imgSemmie.setLayoutX(-90));
-        transition.play();
+        if (titleFloatTransition != null) {
+            titleFloatTransition.stop();
+        }
+        imgTitle.setTranslateY(0);
+        titleFloatTransition = new TranslateTransition(Duration.seconds(3.6), imgTitle);
+        titleFloatTransition.setByY(-10);
+        titleFloatTransition.setAutoReverse(true);
+        titleFloatTransition.setCycleCount(Animation.INDEFINITE);
+        titleFloatTransition.setInterpolator(Interpolator.EASE_BOTH);
+        titleFloatTransition.play();
     }
 
     @FXML
     private void onMinimize() {
         Stage targetStage = resolveStage();
-        System.out.println("[DEBUG] onMinimize() targetStage=" + targetStage);
         if (targetStage != null) {
             targetStage.setIconified(true);
         }
@@ -2853,14 +2678,20 @@ public class LauncherController {
 
     @FXML
     private void onToggleNotifications() {
-        if (!ensureLoggedInForAccountUi()) {
+        if (localNotifications.isEmpty() && !ensureLoggedInForAccountUi()) {
             return;
         }
         notificationsOpen = !notificationsOpen;
         updateNotificationsDropdownVisibility(notificationsOpen, true);
         if (notificationsOpen) {
-            CompletableFuture.runAsync(() -> teamsService.markNotificationsViewed(activeMinecraftUsername()))
-                    .thenRun(() -> Platform.runLater(this::refreshTeamContextAsync));
+            unreadLocalNotifications = 0;
+            renderNotifications();
+            updateNotificationBadge();
+            String username = activeMinecraftUsername();
+            if (loggedIn && !username.isBlank()) {
+                CompletableFuture.runAsync(() -> teamsService.markNotificationsViewed(username))
+                        .thenRun(() -> Platform.runLater(this::refreshTeamContextAsync));
+            }
         }
     }
 
@@ -3020,7 +2851,7 @@ public class LauncherController {
         applyNavState(btnNavTeam, showTeam);
         applyNavState(btnNavSettings, mode == ViewMode.SETTINGS);
 
-        boolean showNotificationsBell = mode != ViewMode.SETTINGS;
+        boolean showNotificationsBell = true;
         if (notificationsAnchor != null) {
             notificationsAnchor.setVisible(showNotificationsBell);
             notificationsAnchor.setManaged(showNotificationsBell);
@@ -3037,7 +2868,11 @@ public class LauncherController {
             }
         }
 
-        if (animate) {
+        if (currentSkinModelView != null) {
+            currentSkinModelView.setAnimated(showSkin && !reducedMotion);
+        }
+
+        if (animate && !reducedMotion) {
             Node target = showHome ? centerContent : (showSkin ? skinNode : (showTeam ? teamNode : settingsNode));
             if (target != null) {
                 target.setOpacity(0.0);
@@ -3216,6 +3051,7 @@ public class LauncherController {
                     }
                     if (result.success()) {
                         notificationBadgeCount = Math.max(0, result.unreadCount());
+                        announceUnreadCount(notificationBadgeCount);
                     } else if (currentTeamContext == null) {
                         notificationBadgeCount = 0;
                     }
@@ -3236,16 +3072,28 @@ public class LauncherController {
         if (notificationBadge == null || lblNotificationCount == null) {
             return;
         }
-        int count = Math.max(0, notificationBadgeCount);
+        int count = Math.max(0, notificationBadgeCount) + Math.max(0, unreadLocalNotifications);
         boolean show = count > 0;
         notificationBadge.setManaged(show);
         notificationBadge.setVisible(show);
-        lblNotificationCount.setText(count > 9 ? "9+" : String.valueOf(count));
+        String text = count > 9 ? "9+" : String.valueOf(count);
+        lblNotificationCount.setText(text);
+        if (lblNotificationsHeaderCount != null) {
+            lblNotificationsHeaderCount.setVisible(show);
+            lblNotificationsHeaderCount.setManaged(show);
+            lblNotificationsHeaderCount.setText(text);
+        }
     }
 
     private void updateNotificationsDropdownVisibility(boolean visible, boolean animate) {
         if (notificationsDropdown == null) {
             return;
+        }
+        if (btnNotifications != null) {
+            btnNotifications.getStyleClass().remove("notification-bell-btn-open");
+            if (visible) {
+                btnNotifications.getStyleClass().add("notification-bell-btn-open");
+            }
         }
         if (visible) {
             bringNotificationUiToFront();
@@ -3291,7 +3139,6 @@ public class LauncherController {
                     "Skin Manager",
                     "Inicia sesion para subir tu skin personalizada y verla dentro de Minecraft."
             ));
-            applyHeadingFontTheme();
             return;
         }
 
@@ -3309,69 +3156,74 @@ public class LauncherController {
                 info.getChildren().add(retryButton);
             }
             skinRoot.getChildren().add(info);
-            applyHeadingFontTheme();
             return;
         }
 
-        VBox card = createSectionCard();
-        card.getStyleClass().add("skin-card");
-        card.setMaxWidth(1040);
-
-        Label title = createHeadingLabel("Skin Manager");
-        Label subtitle = createBodyLabel("Tu skin para Semencraft.");
-        subtitle.setWrapText(true);
-
         Image skinPreview = pendingSkinPreview != null ? pendingSkinPreview : decodeImage(currentSkinContext.skinBase64());
-        HBox previews = new HBox(28);
-        previews.setAlignment(Pos.CENTER_LEFT);
-        previews.getStyleClass().add("skin-preview-row");
-        previews.getChildren().add(buildSkinBodyPreviewPane(skinPreview));
-        previews.getChildren().add(buildSkinSheetPreviewPane(skinPreview));
+        boolean dirty = hasPendingSkinChanges();
 
-        String stateText = currentSkinContext.hasCustomSkin()
-                ? (hasPendingSkinChanges()
-                ? "Cambios sin guardar."
-                : "Skin guardada.")
-                : "Sube una skin.";
-        Label stateLabel = new Label(stateText);
-        stateLabel.getStyleClass().add("skin-state-label");
-        stateLabel.setWrapText(true);
+        Label title = createHeadingLabel("Tu skin");
+        Label state = new Label(dirty ? "Cambios sin guardar"
+                : (currentSkinContext.hasCustomSkin() ? "Guardada" : "Sin skin propia"));
+        state.getStyleClass().addAll("skin-state-badge", dirty ? "skin-state-dirty" : "skin-state-saved");
+        HBox header = new HBox(12, title, state);
+        header.setAlignment(Pos.CENTER_LEFT);
 
-        Label detailsLabel = createBodyLabel(buildSkinDetailsText(currentSkinContext, skinPreview));
-        detailsLabel.setWrapText(true);
-        detailsLabel.getStyleClass().add("skin-details-label");
-
-        Label modelLabel = createFieldLabel("Modelo de brazos");
+        // Columna izquierda: modelo y tipo de brazos
         ToggleGroup modelGroup = new ToggleGroup();
-        ToggleButton wideButton = buildSkinModelButton("Clasica", "wide", modelGroup);
+        ToggleButton wideButton = buildSkinModelButton("Clásica", "wide", modelGroup);
         ToggleButton slimButton = buildSkinModelButton("Delgada", "slim", modelGroup);
-        HBox modelRow = new HBox(10, wideButton, slimButton);
-        modelRow.setAlignment(Pos.CENTER_LEFT);
-        modelRow.getStyleClass().add("skin-model-row");
+        wideButton.getStyleClass().add("segmented-left");
+        slimButton.getStyleClass().add("segmented-right");
+        HBox modelRow = new HBox(0, wideButton, slimButton);
+        modelRow.setAlignment(Pos.CENTER);
+        modelRow.getStyleClass().add("skin-segmented");
+
+        VBox viewerPanel = new VBox(14, buildSkinViewer(skinPreview), modelRow);
+        viewerPanel.setAlignment(Pos.TOP_CENTER);
+        viewerPanel.getStyleClass().add("skin-viewer-panel");
+        if (currentSkinModelView != null) {
+            Label dragHint = new Label("Arrastra para girar");
+            dragHint.getStyleClass().add("skin-body-caption");
+            viewerPanel.getChildren().add(dragHint);
+        }
+
+        // Columna derecha: archivo y guardar
+        Label fileTitle = new Label("Archivo de skin");
+        fileTitle.getStyleClass().add("skin-section-title");
+        Node sheet = buildSkinSheetThumbnail(skinPreview);
+        Button changeButton = new Button(skinPreview == null ? "Subir skin" : "Cambiar skin");
+        changeButton.getStyleClass().add("secondary-btn");
+        changeButton.setOnAction(event -> chooseSkinFile());
+        Label fileHint = new Label("PNG de 64x64 o 64x32.");
+        fileHint.getStyleClass().add("settings-hint");
+        HBox fileRow = new HBox(16, sheet, new VBox(8, changeButton, fileHint));
+        fileRow.setAlignment(Pos.CENTER_LEFT);
 
         Label validationLabel = new Label(pendingSkinDraftError == null ? "" : pendingSkinDraftError);
         validationLabel.getStyleClass().add("team-validation-error");
         validationLabel.setWrapText(true);
 
-        Button saveButton = new Button("Guardar");
+        Button saveButton = new Button("Guardar skin");
         saveButton.getStyleClass().add("team-action-primary");
+        saveButton.setMaxWidth(Double.MAX_VALUE);
+        saveButton.setDisable(!dirty);
         saveButton.setOnAction(event -> submitSkinDraftAsync(saveButton, validationLabel));
 
-        HBox actions = new HBox(12, saveButton);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.getStyleClass().add("skin-action-row");
+        Region sideSpacer = new Region();
+        VBox.setVgrow(sideSpacer, Priority.ALWAYS);
+        VBox sidePanel = new VBox(14, fileTitle, fileRow, sideSpacer, validationLabel, saveButton);
+        sidePanel.getStyleClass().add("skin-side-panel");
+        HBox.setHgrow(sidePanel, Priority.ALWAYS);
 
-        VBox infoPanel = new VBox(16, stateLabel, detailsLabel, modelLabel, modelRow, validationLabel, actions);
-        infoPanel.getStyleClass().add("skin-info-panel");
-        HBox.setHgrow(infoPanel, Priority.ALWAYS);
+        HBox content = new HBox(18, viewerPanel, sidePanel);
+        content.setAlignment(Pos.TOP_LEFT);
 
-        HBox contentRow = new HBox(26, previews, infoPanel);
-        contentRow.setAlignment(Pos.TOP_LEFT);
-        contentRow.getStyleClass().add("skin-content-row");
-
-        card.getChildren().addAll(title, subtitle, contentRow);
+        VBox card = createSectionCard();
+        card.getStyleClass().add("skin-card");
+        card.setMaxWidth(820);
+        card.getChildren().addAll(header, content);
         skinRoot.getChildren().add(card);
-        applyHeadingFontTheme();
     }
 
     private ToggleButton buildSkinModelButton(String label, String modelId, ToggleGroup toggleGroup) {
@@ -3380,7 +3232,10 @@ public class LauncherController {
         button.setToggleGroup(toggleGroup);
         String normalizedModel = SupabaseSkinService.normalizeModel(modelId);
         button.setSelected(normalizedModel.equals(SupabaseSkinService.normalizeModel(pendingSkinModel)));
-        button.setOnAction(event -> pendingSkinModel = normalizedModel);
+        button.setOnAction(event -> {
+            pendingSkinModel = normalizedModel;
+            renderSkinView();
+        });
         return button;
     }
 
@@ -3489,19 +3344,19 @@ public class LauncherController {
                 .equals(SupabaseSkinService.normalizeModel(currentSkinContext.modelId()));
     }
 
-    private String buildSkinDetailsText(SupabaseSkinService.SkinContext context, Image skinPreview) {
-        String model = "slim".equalsIgnoreCase(SupabaseSkinService.normalizeModel(pendingSkinModel)) ? "Delgada" : "Clasica";
-        return "Modelo " + model + "  |  PNG 64x64 o 64x32";
-    }
-
-    private Node buildSkinBodyPreviewPane(Image skinPreview) {
-        VBox box = new VBox(10);
-        box.getStyleClass().addAll("skin-preview-card", "skin-preview-card-head");
-        box.setAlignment(Pos.TOP_CENTER);
-        Label label = new Label("Personaje");
-        label.getStyleClass().add("skin-preview-label");
-        applyHeadingFont(label);
-
+    /** Modelo 3D si la PC lo soporta; si no, las vistas 2D de frente y espalda. */
+    private Node buildSkinViewer(Image skinPreview) {
+        if (currentSkinModelView != null) {
+            currentSkinModelView.setAnimated(false);
+            currentSkinModelView = null;
+        }
+        if (skinPreview != null && SkinModelView.isSupported()) {
+            boolean slim = "slim".equalsIgnoreCase(SupabaseSkinService.normalizeModel(pendingSkinModel));
+            currentSkinModelView = new SkinModelView(skinPreview, slim, 300, 360, reducedMotion);
+            currentSkinModelView.setAnimated(viewMode == ViewMode.SKIN && !reducedMotion);
+            fitSkinModelToViewport();
+            return currentSkinModelView;
+        }
         HBox figures = new HBox(14);
         figures.getStyleClass().add("skin-body-row");
         figures.setAlignment(Pos.CENTER);
@@ -3509,9 +3364,20 @@ public class LauncherController {
                 buildSkinBodyFigure(skinPreview, true, "Frente"),
                 buildSkinBodyFigure(skinPreview, false, "Espalda")
         );
+        return figures;
+    }
 
-        box.getChildren().addAll(label, figures);
-        return box;
+    /** El modelo se achica en ventanas bajas para que la tarjeta entre sin scroll. */
+    private void fitSkinModelToViewport() {
+        if (currentSkinModelView == null || skinScroll == null) {
+            return;
+        }
+        double viewportHeight = skinScroll.getViewportBounds().getHeight();
+        if (viewportHeight <= 0) {
+            return;
+        }
+        double height = Math.max(240, Math.min(360, viewportHeight - SKIN_CARD_CHROME_HEIGHT));
+        currentSkinModelView.setViewerHeight(Math.floor(height));
     }
 
     private Node buildSkinBodyFigure(Image skinPreview, boolean frontView, String captionText) {
@@ -3547,103 +3413,33 @@ public class LauncherController {
         return figure;
     }
 
-    private Node buildSkinSheetPreviewPane(Image skinPreview) {
-        VBox box = new VBox(10);
-        box.getStyleClass().addAll("skin-preview-card", "skin-preview-card-sheet");
-        box.setAlignment(Pos.CENTER);
-        Label label = new Label("Skin");
-        label.getStyleClass().add("skin-preview-label");
-        applyHeadingFont(label);
-        label.setMaxWidth(Double.MAX_VALUE);
-        label.setAlignment(Pos.CENTER);
-
-        Node previewNode;
-        if (skinPreview != null) {
-            ImageView sheetView = new ImageView(skinPreview);
-            sheetView.setFitWidth(190);
-            sheetView.setFitHeight(190);
-            sheetView.setPreserveRatio(true);
-            sheetView.setSmooth(false);
-            sheetView.setCache(false);
-            sheetView.getStyleClass().add("skin-sheet-preview");
-            StackPane frame = new StackPane(sheetView);
-            frame.getStyleClass().add("skin-sheet-frame");
-            frame.setPrefSize(230, 230);
-            frame.setMinSize(230, 230);
-            frame.setMaxSize(230, 230);
-            previewNode = buildSkinDraftPreviewControl(frame, 230, 230, true);
-        } else {
-            previewNode = buildSkinDraftPreviewControl(buildSkinUploadPrompt(), 230, 230, false);
+    /**
+     * La textura plana, nitida: cada pixel de la skin ocupa un numero entero de pixeles
+     * reales de pantalla (tambien con escalado de Windows al 125 % o 150 %).
+     */
+    private Node buildSkinSheetThumbnail(Image skinPreview) {
+        StackPane frame = new StackPane();
+        frame.getStyleClass().add("skin-sheet-frame");
+        frame.setPrefSize(156, 156);
+        frame.setMinSize(156, 156);
+        frame.setMaxSize(156, 156);
+        if (skinPreview == null || skinPreview.getWidth() <= 0) {
+            Label empty = new Label("Sin skin");
+            empty.getStyleClass().add("skin-empty-preview");
+            frame.getChildren().add(empty);
+            return frame;
         }
 
-        box.getChildren().addAll(label, previewNode);
-        return box;
-    }
-
-    private Node buildSkinDraftPreviewControl(Node previewNode, double width, double height, boolean editable) {
-        StackPane wrapper = new StackPane();
-        wrapper.getStyleClass().add("skin-edit-wrapper");
-        wrapper.setPrefSize(width, height);
-        wrapper.setMinSize(width, height);
-        wrapper.setMaxSize(width, height);
-        wrapper.setCursor(Cursor.HAND);
-        wrapper.setOnMouseClicked(event -> chooseSkinFile());
-        wrapper.setClip(new Rectangle(width, height));
-
-        if (!editable) {
-            wrapper.getChildren().add(previewNode);
-            return wrapper;
-        }
-
-        Region overlay = new Region();
-        overlay.getStyleClass().add("skin-edit-overlay");
-        overlay.setMouseTransparent(true);
-        overlay.setPrefSize(width, height);
-        overlay.setMinSize(width, height);
-        overlay.setMaxSize(width, height);
-        overlay.setOpacity(0.0);
-
-        StackPane editBadge = new StackPane();
-        editBadge.getStyleClass().add("skin-edit-indicator");
-        editBadge.setMouseTransparent(true);
-        editBadge.setOpacity(0.0);
-        if (editIcon != null) {
-            editBadge.getChildren().add(makeIcon(editIcon, 28));
-        } else {
-            Label fallback = new Label("EDIT");
-            fallback.getStyleClass().add("team-icon-edit-indicator-label");
-            editBadge.getChildren().add(fallback);
-        }
-
-        ParallelTransition hoverIn = parallel(fade(overlay, 1.0, 180), fade(editBadge, 1.0, 180));
-        ParallelTransition hoverOut = parallel(fade(overlay, 0.0, 180), fade(editBadge, 0.0, 180));
-        wrapper.setOnMouseEntered(event -> {
-            hoverOut.stop();
-            hoverIn.playFromStart();
-        });
-        wrapper.setOnMouseExited(event -> {
-            hoverIn.stop();
-            hoverOut.playFromStart();
-        });
-        wrapper.getChildren().addAll(previewNode, overlay, editBadge);
-        return wrapper;
-    }
-
-    private Node buildSkinUploadPrompt() {
-        Button uploadButton = new Button("SUBIR");
-        uploadButton.getStyleClass().add("skin-upload-btn");
-        if (cameraIcon != null) {
-            VBox graphic = new VBox(6, makeIcon(cameraIcon, 30), new Label("SUBIR"));
-            graphic.setAlignment(Pos.CENTER);
-            uploadButton.setGraphic(graphic);
-            uploadButton.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
-        }
-        uploadButton.setOnAction(event -> chooseSkinFile());
-
-        StackPane shell = new StackPane(uploadButton);
-        shell.getStyleClass().add("skin-upload-shell");
-        shell.setPrefSize(230, 230);
-        return shell;
+        double outputScale = skinRoot != null && skinRoot.getScene() != null && skinRoot.getScene().getWindow() != null
+                ? skinRoot.getScene().getWindow().getOutputScaleX()
+                : javafx.stage.Screen.getPrimary().getOutputScaleX();
+        int screenPixelsPerSkinPixel = Math.max(1, (int) Math.round(2.0 * outputScale));
+        ImageView sheetView = new ImageView(SkinModelView.pixelScaled(skinPreview, screenPixelsPerSkinPixel));
+        sheetView.setFitWidth(skinPreview.getWidth() * screenPixelsPerSkinPixel / outputScale);
+        sheetView.setPreserveRatio(true);
+        sheetView.setSmooth(false);
+        frame.getChildren().add(sheetView);
+        return frame;
     }
 
     private void renderTeamView() {
@@ -3657,7 +3453,6 @@ public class LauncherController {
                     "Tu equipo",
                     "Inicia sesion para ver tus equipos, invitaciones y miembros."
             ));
-            applyHeadingFontTheme();
             return;
         }
 
@@ -3666,7 +3461,6 @@ public class LauncherController {
                     "Cargando equipo",
                     "Estamos consultando tu informacion en la base de datos."
             ));
-            applyHeadingFontTheme();
             return;
         }
 
@@ -3676,19 +3470,16 @@ public class LauncherController {
                 case JOIN -> renderJoinTeamState();
                 default -> renderNoTeamState();
             }
-            applyHeadingFontTheme();
             return;
         }
 
         if (teamPanelMode == TeamPanelMode.EDIT && currentTeamContext.founder()) {
             renderCreateTeamState();
-            applyHeadingFontTheme();
             return;
         }
 
         teamPanelMode = TeamPanelMode.EMPTY;
         renderCurrentTeamState();
-        applyHeadingFontTheme();
     }
 
     private void renderNoTeamState() {
@@ -4038,7 +3829,6 @@ public class LauncherController {
         nameRow.setAlignment(Pos.CENTER_LEFT);
         Label name = new Label(member.minecraftUsername());
         name.getStyleClass().add("team-member-name");
-        applyHeadingFont(name);
         nameRow.getChildren().add(name);
         if (member.founder() && crownIcon != null) {
             nameRow.getChildren().add(makeIcon(crownIcon, 16));
@@ -4066,70 +3856,161 @@ public class LauncherController {
         }
         notificationsList.getChildren().clear();
 
-        if (!loggedIn || currentTeamContext == null || currentTeamContext.notifications().isEmpty()) {
-            VBox empty = new VBox(8);
-            empty.getStyleClass().add("notification-empty-state");
-            Label title = new Label("Sin notificaciones");
-            title.getStyleClass().add("notification-title");
-            Label body = new Label("Cuando recibas invitaciones o novedades del equipo, apareceran aqui.");
-            body.getStyleClass().add("notification-body");
-            body.setWrapText(true);
-            empty.getChildren().addAll(title, body);
-            notificationsList.getChildren().add(empty);
-            applyHeadingFontTheme();
-            return;
+        boolean hasTeamNotifications = loggedIn && currentTeamContext != null && !currentTeamContext.notifications().isEmpty();
+        if (!localNotifications.isEmpty()) {
+            notificationsList.getChildren().add(buildNotificationsSectionLabel("LAUNCHER"));
+            for (LocalNotification notification : localNotifications) {
+                notificationsList.getChildren().add(buildLocalNotificationCard(notification));
+            }
+        }
+        if (hasTeamNotifications) {
+            if (!localNotifications.isEmpty()) {
+                notificationsList.getChildren().add(buildNotificationsSectionLabel("EQUIPO"));
+            }
+            for (SupabaseTeamsService.NotificationItem item : currentTeamContext.notifications()) {
+                notificationsList.getChildren().add(buildTeamNotificationCard(item));
+            }
+        }
+        if (localNotifications.isEmpty() && !hasTeamNotifications) {
+            notificationsList.getChildren().add(buildEmptyNotificationsState());
+        }
+    }
+
+    private Node buildNotificationsSectionLabel(String text) {
+        Label label = new Label(text);
+        label.getStyleClass().add("notification-section");
+        return label;
+    }
+
+    private Node buildLocalNotificationCard(LocalNotification notification) {
+        VBox card = new VBox(6);
+        card.getStyleClass().add("notification-card");
+        if ("update".equals(notification.kind())) {
+            card.getStyleClass().add("notification-card-highlight");
         }
 
-        for (SupabaseTeamsService.NotificationItem item : currentTeamContext.notifications()) {
-            VBox card = new VBox(8);
-            card.getStyleClass().add("notification-card");
+        Label title = new Label(notification.title());
+        title.getStyleClass().add("notification-title");
+        title.setWrapText(true);
+        Label time = new Label(formatRelativeTime(notification.createdAt()));
+        time.getStyleClass().add("notification-meta");
+        card.getChildren().addAll(title, time);
 
-            String teamName = item.teamName() == null || item.teamName().isBlank() ? "Notificacion" : item.teamName();
-            VBox textColumn = new VBox(3);
-            Label title = new Label(teamName);
-            title.getStyleClass().add("notification-title");
-            textColumn.getChildren().add(title);
-            if (item.inviterMinecraftUsername() != null && !item.inviterMinecraftUsername().isBlank()) {
-                Label meta = new Label("Invitado por " + item.inviterMinecraftUsername());
-                meta.getStyleClass().add("notification-meta");
-                textColumn.getChildren().add(meta);
-            }
-            HBox header = new HBox(10);
-            header.setAlignment(Pos.CENTER_LEFT);
-            if ("team_invite".equals(item.type()) || (item.teamIconBase64() != null && !item.teamIconBase64().isBlank())) {
-                header.getChildren().add(buildTeamIconNode(decodeImage(item.teamIconBase64()), item.teamColorHex(), 42));
-            } else if (item.inviterMinecraftUsername() != null && !item.inviterMinecraftUsername().isBlank()) {
-                header.getChildren().add(buildMinecraftHeadNode(item.inviterMinecraftUsername(), item.teamColorHex(), 42));
-            }
-            header.getChildren().add(textColumn);
+        if (notification.body() != null && !notification.body().isBlank()) {
+            Label body = new Label(notification.body());
+            body.getStyleClass().add("notification-body");
+            body.setWrapText(true);
+            card.getChildren().add(body);
+        }
+        if (notification.action() != null && notification.actionLabel() != null) {
+            Button action = new Button(notification.actionLabel());
+            action.getStyleClass().add("notification-accept-btn");
+            action.setOnAction(event -> {
+                updateNotificationsDropdownVisibility(false, false);
+                notification.action().run();
+            });
+            card.getChildren().add(action);
+        }
+        return card;
+    }
 
+    private Node buildTeamNotificationCard(SupabaseTeamsService.NotificationItem item) {
+        boolean pendingInvite = "team_invite".equals(item.type()) && "pending".equals(item.status());
+        VBox card = new VBox(8);
+        card.getStyleClass().add("notification-card");
+        if (!item.read() || pendingInvite) {
+            card.getStyleClass().add("notification-card-highlight");
+        }
+
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        if ("team_invite".equals(item.type()) || (item.teamIconBase64() != null && !item.teamIconBase64().isBlank())) {
+            header.getChildren().add(buildTeamIconNode(decodeImage(item.teamIconBase64()), item.teamColorHex(), 40));
+        } else if (item.inviterMinecraftUsername() != null && !item.inviterMinecraftUsername().isBlank()) {
+            header.getChildren().add(buildMinecraftHeadNode(item.inviterMinecraftUsername(), item.teamColorHex(), 40));
+        }
+
+        Label title = new Label(item.teamName() == null || item.teamName().isBlank() ? "Notificación" : item.teamName());
+        title.getStyleClass().add("notification-title");
+        title.setWrapText(true);
+        VBox text = new VBox(2, title);
+        StringBuilder meta = new StringBuilder();
+        if (item.inviterMinecraftUsername() != null && !item.inviterMinecraftUsername().isBlank()) {
+            meta.append("Invitado por ").append(item.inviterMinecraftUsername());
+        }
+        String when = formatRelativeTime(parseInstantSafely(item.createdAt()));
+        if (!when.isBlank()) {
+            meta.append(meta.isEmpty() ? "" : ", ").append(when);
+        }
+        if (!meta.isEmpty()) {
+            Label metaLabel = new Label(meta.toString());
+            metaLabel.getStyleClass().add("notification-meta");
+            metaLabel.setWrapText(true);
+            text.getChildren().add(metaLabel);
+        }
+        text.setMinWidth(0);
+        HBox.setHgrow(text, Priority.ALWAYS);
+        header.getChildren().add(text);
+        card.getChildren().add(header);
+
+        if (item.message() != null && !item.message().isBlank()) {
             Label body = new Label(item.message());
             body.getStyleClass().add("notification-body");
             body.setWrapText(true);
-            card.getChildren().addAll(header, body);
-
-            if ("team_invite".equals(item.type()) && "pending".equals(item.status())) {
-                HBox actions = new HBox(10);
-                Button acceptButton = new Button("Aceptar");
-                acceptButton.getStyleClass().add("notification-accept-btn");
-                applyHeadingFont(acceptButton);
-                acceptButton.setOnAction(event -> respondToInviteAsync(item, true));
-
-                Button rejectButton = new Button("Rechazar");
-                rejectButton.getStyleClass().add("notification-reject-btn");
-                applyHeadingFont(rejectButton);
-                rejectButton.setOnAction(event -> respondToInviteAsync(item, false));
-                actions.getChildren().addAll(acceptButton, rejectButton);
-                card.getChildren().add(actions);
-            } else {
-                Label state = new Label(formatNotificationState(item.status()));
-                state.getStyleClass().add("notification-state");
-                card.getChildren().add(state);
-            }
-
-            notificationsList.getChildren().add(card);
+            card.getChildren().add(body);
         }
-        applyHeadingFontTheme();
+
+        if (pendingInvite) {
+            Button acceptButton = new Button("Aceptar");
+            acceptButton.getStyleClass().add("notification-accept-btn");
+            acceptButton.setOnAction(event -> respondToInviteAsync(item, true));
+            Button rejectButton = new Button("Rechazar");
+            rejectButton.getStyleClass().add("notification-reject-btn");
+            rejectButton.setOnAction(event -> respondToInviteAsync(item, false));
+            card.getChildren().add(new HBox(8, acceptButton, rejectButton));
+        } else {
+            Label state = new Label(formatNotificationState(item.status()));
+            state.getStyleClass().add("notification-state");
+            card.getChildren().add(state);
+        }
+        return card;
+    }
+
+    private Node buildEmptyNotificationsState() {
+        Label title = new Label("Sin notificaciones");
+        title.getStyleClass().add("notification-title");
+        Label body = new Label("Cuando recibas invitaciones o novedades del equipo, aparecerán aquí.");
+        body.getStyleClass().add("notification-body");
+        body.setWrapText(true);
+        VBox empty = new VBox(8, title, body);
+        empty.getStyleClass().add("notification-empty-state");
+        return empty;
+    }
+
+    private static String formatRelativeTime(Instant when) {
+        if (when == null) {
+            return "";
+        }
+        long seconds = Math.max(0L, java.time.Duration.between(when, Instant.now()).getSeconds());
+        if (seconds < 60) {
+            return "ahora";
+        }
+        long minutes = seconds / 60;
+        if (minutes < 60) {
+            return "hace " + minutes + " min";
+        }
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return "hace " + hours + " h";
+        }
+        long days = hours / 24;
+        if (days == 1) {
+            return "ayer";
+        }
+        if (days < 7) {
+            return "hace " + days + " días";
+        }
+        return NOTIFICATION_DATE_FORMAT.format(when);
     }
 
     private String formatNotificationState(String status) {
@@ -4428,7 +4309,6 @@ public class LauncherController {
                     TextField searchField = new TextField();
                     searchField.getStyleClass().addAll("settings-field", "minecraft-search-field");
                     searchField.setPromptText("Buscar usuario de Minecraft...");
-                    applyBodyFont(searchField);
 
                     VBox resultsBox = new VBox(10);
                     ScrollPane scrollPane = new ScrollPane(resultsBox);
@@ -4457,12 +4337,10 @@ public class LauncherController {
                             StackPane avatar = buildAvatarWithPresence(player.minecraftUsername(), "", 44, inviteDialogDots);
                             Label name = new Label(player.minecraftUsername());
                             name.getStyleClass().add("team-member-name");
-                            applyHeadingFont(name);
                             Region spacer = new Region();
                             HBox.setHgrow(spacer, Priority.ALWAYS);
                             Button inviteButton = new Button("Invitar");
                             inviteButton.getStyleClass().add("team-action-primary");
-                            applyHeadingFont(inviteButton);
                             inviteButton.setOnAction(event -> {
                                 inviteButton.setDisable(true);
                                 CompletableFuture
@@ -4494,7 +4372,6 @@ public class LauncherController {
                     dialog.setOnHidden(event -> inviteDialogPresencePoll.stop());
 
                     root.getChildren().addAll(title, searchField, scrollPane);
-                    applyHeadingFontRecursively(root);
                     Scene dialogScene = new Scene(root, 500, 420);
                     if (titleBar != null && titleBar.getScene() != null) {
                         dialogScene.getStylesheets().addAll(titleBar.getScene().getStylesheets());
@@ -4639,9 +4516,10 @@ public class LauncherController {
         imageView.setFitHeight(innerSize);
         imageView.setPreserveRatio(false);
         imageView.setSmooth(false);
-        Circle clip = new Circle(innerSize / 2.0);
-        clip.setCenterX(innerSize / 2.0);
-        clip.setCenterY(innerSize / 2.0);
+        // Misma forma que el marco: cuadrado con esquinas apenas redondeadas, como una cabeza de Minecraft.
+        Rectangle clip = new Rectangle(innerSize, innerSize);
+        clip.setArcWidth(HEAD_INNER_RADIUS * 2);
+        clip.setArcHeight(HEAD_INNER_RADIUS * 2);
         imageView.setClip(clip);
         inner.getChildren().add(imageView);
         outer.getChildren().add(inner);
@@ -5010,6 +4888,7 @@ public class LauncherController {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
         alert.setTitle("SemenCraft Launcher");
         alert.setHeaderText(title);
+        styleDialog(alert);
         return alert.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
     }
 
@@ -5067,17 +4946,19 @@ public class LauncherController {
     }
 
     private void applyLoginBackdropFx(boolean active) {
+        // El desenfoque es de lo mas caro para la GPU: en modo optimizado solo se oscurece.
+        boolean blur = active && !reducedMotion;
         if (sidebarGlass != null) {
             sidebarGlass.setOpacity(active ? 0.56 : 1.0);
-            sidebarGlass.setEffect(active ? loginBlurLight : null);
+            sidebarGlass.setEffect(blur ? loginBlurLight : null);
         }
         if (centerContent != null) {
             centerContent.setOpacity(active ? 0.42 : 1.0);
-            centerContent.setEffect(active ? loginBlurHeavy : null);
+            centerContent.setEffect(blur ? loginBlurHeavy : null);
         }
         Node settingsNode = settingsView != null ? settingsView : settingsScroll;
         if (settingsNode != null) {
-            settingsNode.setEffect(active ? loginBlurLight : null);
+            settingsNode.setEffect(blur ? loginBlurLight : null);
         }
         if (titleBar != null) {
             titleBar.setOpacity(active ? 0.76 : 1.0);
@@ -5114,6 +4995,7 @@ public class LauncherController {
 
     private void handleLaunchSuccess(LauncherStorage.LauncherConfig config, FabricMinecraftService.LaunchResult result) {
         setPlayBusy(false);
+        announceCatalogChanges(!config.closeLauncherOnStart());
         updateLoadingProgressUi("Minecraft iniciado", 1.0, 1.0);
         if (result != null) {
             trackMinecraftProcess(result.process(), result.loaderVersion());
@@ -5171,6 +5053,9 @@ public class LauncherController {
 
     private void startIndicatorAnimations() {
         stopIndicatorAnimations();
+        if (reducedMotion) {
+            return;
+        }
         totalIndicatorLoop = createIndicatorLoop(progressTrackTotal, progressIndTotal, 1200);
         downloadIndicatorLoop = createIndicatorLoop(progressTrackDownload, progressIndDownload, 980);
         totalIndicatorLoop.play();
@@ -5318,21 +5203,25 @@ public class LauncherController {
         return Math.max(0.0, width);
     }
 
+    private static Duration motion(int ms) {
+        return Duration.millis(reducedMotion ? 1 : ms);
+    }
+
     static FadeTransition fade(Node n, double to, int ms) {
-        FadeTransition transition = new FadeTransition(Duration.millis(ms), n);
+        FadeTransition transition = new FadeTransition(motion(ms), n);
         transition.setToValue(to);
         return transition;
     }
 
     private static TranslateTransition slide(Node n, double toX, int ms) {
-        TranslateTransition transition = new TranslateTransition(Duration.millis(ms), n);
+        TranslateTransition transition = new TranslateTransition(motion(ms), n);
         transition.setToX(toX);
         transition.setInterpolator(Interpolator.SPLINE(0.25, 0.8, 0.25, 1.0));
         return transition;
     }
 
     private static TranslateTransition slideY(Node n, double toY, int ms) {
-        TranslateTransition transition = new TranslateTransition(Duration.millis(ms), n);
+        TranslateTransition transition = new TranslateTransition(motion(ms), n);
         transition.setToY(toY);
         transition.setInterpolator(Interpolator.EASE_OUT);
         return transition;
@@ -5361,9 +5250,10 @@ public class LauncherController {
 
     private void showInfo(String msg) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Semencraft III Launcher");
-        alert.setHeaderText(null);
+        alert.setTitle("Semencraft Launcher");
+        alert.setHeaderText("Semencraft Launcher");
         alert.setContentText(msg);
+        styleDialog(alert);
         alert.showAndWait();
     }
 
@@ -5385,6 +5275,7 @@ public class LauncherController {
         ButtonType downloadButton = new ButtonType("Descargar Java 21");
         ButtonType closeButton = new ButtonType("Cerrar");
         alert.getButtonTypes().setAll(downloadButton, closeButton);
+        styleDialog(alert);
 
         var selected = alert.showAndWait();
         if (selected.isPresent() && selected.get() == downloadButton) {
@@ -5400,5 +5291,485 @@ public class LauncherController {
             java.awt.Desktop.getDesktop().browse(new URI(url));
         } catch (Exception ignored) {
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Inicio: version, estado y datos del perfil
+    // ------------------------------------------------------------------
+
+    private void applyVersionLabels() {
+        String version = shortVersion(LauncherUpdater.currentVersion());
+        if (lblTitleVersion != null) {
+            lblTitleVersion.setText("v" + version);
+        }
+        if (lblVersion != null) {
+            lblVersion.setText("v" + version + "  -  Fabric " + FabricMinecraftService.TARGET_MINECRAFT_VERSION);
+        }
+        if (lblLauncherVersion != null) {
+            lblLauncherVersion.setText("Semencraft Launcher v" + version);
+        }
+    }
+
+    private static String shortVersion(String version) {
+        if (version == null || version.isBlank()) {
+            return "?";
+        }
+        return version.matches("\\d+\\.\\d+\\.0") ? version.substring(0, version.length() - 2) : version;
+    }
+
+    @FXML
+    private void onConfigure() {
+        showView(ViewMode.SETTINGS, true);
+        applySettingsSection(SettingsSection.GENERAL, true);
+    }
+
+    @FXML
+    private void onModsList() {
+        showView(ViewMode.SETTINGS, true);
+        applySettingsSection(SettingsSection.MODPACKS, true);
+    }
+
+    private void refreshUserPresenceUi() {
+        boolean signedIn = loggedIn && !activeMinecraftUsername().isBlank();
+        if (lblUserState != null) {
+            lblUserState.setText(!signedIn ? "Sin sesión" : (minecraftRunning ? "Jugando" : "En línea"));
+        }
+        if (userStateDot != null) {
+            userStateDot.getStyleClass().removeAll("state-online", "state-playing");
+            if (signedIn) {
+                userStateDot.getStyleClass().add(minecraftRunning ? "state-playing" : "state-online");
+            }
+        }
+    }
+
+    private void applyPerformanceMode(boolean enabled) {
+        performanceMode = enabled;
+        reducedMotion = enabled;
+        Parent root = titleBar == null ? null : titleBar.getParent();
+        if (root != null) {
+            root.getStyleClass().remove("perf-mode");
+            if (enabled) {
+                root.getStyleClass().add("perf-mode");
+            }
+        }
+        if (enabled) {
+            if (titleFloatTransition != null) {
+                titleFloatTransition.stop();
+            }
+            if (imgTitle != null) {
+                imgTitle.setTranslateY(0);
+            }
+            stopIndicatorAnimations();
+        } else if (titleFloatTransition == null || titleFloatTransition.getStatus() != Animation.Status.RUNNING) {
+            startTitleFloat();
+        }
+        if (currentSkinModelView != null) {
+            currentSkinModelView.setAnimated(!enabled && viewMode == ViewMode.SKIN);
+        }
+        applyLoginBackdropFx(login != null && login.isVisible());
+    }
+
+    private void setupRamSliderFill() {
+        if (sliderRam == null) {
+            return;
+        }
+        sliderRam.valueProperty().addListener((obs, oldV, newV) -> updateRamSliderFill());
+        sliderRam.skinProperty().addListener((obs, oldV, newV) -> Platform.runLater(this::updateRamSliderFill));
+        Platform.runLater(this::updateRamSliderFill);
+    }
+
+    private void updateRamSliderFill() {
+        if (sliderRam == null) {
+            return;
+        }
+        Node track = sliderRam.lookup(".track");
+        if (track == null) {
+            return;
+        }
+        double range = Math.max(1.0, sliderRam.getMax() - sliderRam.getMin());
+        double percent = clamp((sliderRam.getValue() - sliderRam.getMin()) / range, 0.0, 1.0) * 100.0;
+        track.setStyle(String.format(Locale.US,
+                "-fx-background-color: linear-gradient(to right, #ffb547 0%%, #ffb547 %.1f%%, rgba(255,255,255,0.12) %.1f%%, rgba(255,255,255,0.12) 100%%);",
+                percent, percent));
+    }
+
+    // ------------------------------------------------------------------
+    // Notificaciones locales, sonido y toasts
+    // ------------------------------------------------------------------
+
+    private void playNotificationSound() {
+        if (persistedConfig == null || persistedConfig.notificationSound()) {
+            NotificationSound.play();
+        }
+    }
+
+    /** Suena y avisa solo cuando el numero de no leidas SUBE (no al abrir el launcher). */
+    private void announceUnreadCount(int unread) {
+        int previous = lastAnnouncedUnreadCount;
+        lastAnnouncedUnreadCount = unread;
+        if (previous < 0 || unread <= previous) {
+            return;
+        }
+        playNotificationSound();
+        int fresh = unread - previous;
+        if (!notificationsOpen) {
+            showToast("info",
+                    fresh == 1 ? "Nueva notificación" : fresh + " notificaciones nuevas",
+                    "Toca aquí para verlas.",
+                    this::openNotificationsPanel);
+        }
+        refreshTeamContextAsync();
+    }
+
+    private void announceCatalogChanges(boolean reloadCatalog) {
+        ModpackManager.CatalogChanges changes = ModpackManager.consumeCatalogChanges();
+        if (changes == null || changes.isEmpty()) {
+            return;
+        }
+        String summary = changes.summary();
+        String details = changes.details();
+        addLocalNotification("modpack", "Modpack actualizado",
+                details.isBlank() ? summary : summary + "\n\n" + details, null, null);
+        showToast("success", "Modpack actualizado",
+                summary + ". Solo se descargaron los cambios.", this::openNotificationsPanel);
+        playNotificationSound();
+        if (reloadCatalog) {
+            loadModpackCatalogAsync();
+        }
+    }
+
+    private void addLocalNotification(String kind, String title, String body, String actionLabel, Runnable action) {
+        if ("update".equals(kind)) {
+            localNotifications.removeIf(existing -> "update".equals(existing.kind()));
+        }
+        localNotifications.add(0, new LocalNotification(kind, title, body, Instant.now(), actionLabel, action));
+        while (localNotifications.size() > MAX_LOCAL_NOTIFICATIONS) {
+            localNotifications.remove(localNotifications.size() - 1);
+        }
+        if (!notificationsOpen) {
+            unreadLocalNotifications++;
+        }
+        renderNotifications();
+        updateNotificationBadge();
+    }
+
+    private void openNotificationsPanel() {
+        if (!notificationsOpen) {
+            onToggleNotifications();
+        }
+    }
+
+    private void showToast(String kind, String title, String body, Runnable onClick) {
+        if (toastLayer == null) {
+            return;
+        }
+        Label titleLabel = new Label(title);
+        titleLabel.getStyleClass().add("toast-title");
+        VBox text = new VBox(2, titleLabel);
+        if (body != null && !body.isBlank()) {
+            Label bodyLabel = new Label(body);
+            bodyLabel.getStyleClass().add("toast-body");
+            bodyLabel.setWrapText(true);
+            bodyLabel.setMaxWidth(300);
+            text.getChildren().add(bodyLabel);
+        }
+
+        HBox toast = new HBox(text);
+        toast.getStyleClass().addAll("toast", "toast-" + kind);
+        toast.setAlignment(Pos.CENTER_LEFT);
+        toast.setMaxWidth(Region.USE_PREF_SIZE);
+        toast.setOnMouseClicked(event -> {
+            dismissToast(toast);
+            if (onClick != null) {
+                onClick.run();
+            }
+        });
+
+        toastLayer.getChildren().add(toast);
+        while (toastLayer.getChildren().size() > 3) {
+            toastLayer.getChildren().remove(0);
+        }
+        toast.setOpacity(0.0);
+        toast.setTranslateY(18.0);
+        parallel(fade(toast, 1.0, 220), slideY(toast, 0.0, 260)).play();
+        delay(6000, () -> dismissToast(toast));
+    }
+
+    private void dismissToast(Node toast) {
+        if (toastLayer == null || !toastLayer.getChildren().contains(toast)
+                || Boolean.TRUE.equals(toast.getProperties().get("closing"))) {
+            return;
+        }
+        toast.getProperties().put("closing", Boolean.TRUE);
+        ParallelTransition out = parallel(fade(toast, 0.0, 200), slideY(toast, 12.0, 200));
+        out.setOnFinished(event -> toastLayer.getChildren().remove(toast));
+        out.play();
+    }
+
+    // ------------------------------------------------------------------
+    // Actualizaciones del launcher (GitHub Releases)
+    // ------------------------------------------------------------------
+
+    private void checkForLauncherUpdateOnStartup() {
+        checkForLauncherUpdate(false);
+    }
+
+    @FXML
+    private void onCheckUpdates() {
+        checkForLauncherUpdate(true);
+    }
+
+    private void checkForLauncherUpdate(boolean manual) {
+        if (updateCheckInFlight || updateInstallInProgress || servicesShutdown) {
+            return;
+        }
+        updateCheckInFlight = true;
+        if (btnCheckUpdates != null) {
+            btnCheckUpdates.setDisable(true);
+        }
+        setUpdateStatus("Buscando actualizaciones...");
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return launcherUpdater.checkForUpdate();
+                    } catch (IOException ex) {
+                        throw new CompletionException(ex);
+                    }
+                })
+                .whenComplete((info, error) -> Platform.runLater(() -> {
+                    updateCheckInFlight = false;
+                    if (btnCheckUpdates != null) {
+                        btnCheckUpdates.setDisable(false);
+                    }
+                    if (servicesShutdown) {
+                        return;
+                    }
+                    if (error != null) {
+                        setUpdateStatus("No se pudo comprobar: " + rootMessage(error));
+                        if (manual) {
+                            showToast("info", "No se pudo buscar actualizaciones", rootMessage(error), null);
+                        }
+                        return;
+                    }
+                    if (info == null) {
+                        setUpdateStatus("Tienes la última versión (v" + shortVersion(LauncherUpdater.currentVersion()) + ").");
+                        if (manual) {
+                            showToast("success", "Todo al día", "Ya tienes la última versión del launcher.", null);
+                        }
+                        return;
+                    }
+                    setUpdateStatus("Nueva versión disponible: v" + shortVersion(info.version()) + ".");
+                    addLocalNotification("update",
+                            "Actualización disponible: v" + shortVersion(info.version()),
+                            "Hay una versión nueva del launcher lista para instalar.",
+                            "Actualizar",
+                            () -> showUpdateModal(info));
+                    if (!launchInProgress) {
+                        showUpdateModal(info);
+                    }
+                }));
+    }
+
+    private void setUpdateStatus(String text) {
+        if (lblUpdateStatus != null) {
+            lblUpdateStatus.setText(text);
+        }
+    }
+
+    private void showUpdateModal(LauncherUpdater.UpdateInfo info) {
+        if (modalLayer == null || info == null) {
+            return;
+        }
+        boolean canInstall = info.hasInstaller() && LauncherUpdater.canInstallInPlace();
+
+        Label title = new Label("Versión " + shortVersion(info.version()) + " disponible");
+        title.getStyleClass().add("modal-title");
+        title.setWrapText(true);
+
+        String current = "Tienes la v" + shortVersion(LauncherUpdater.currentVersion()) + ". ";
+        Label body = new Label(current + (canInstall
+                ? "¿Quieres actualizar ahora? Se descarga el instalador, se desinstala la versión anterior y el launcher "
+                + "se vuelve a abrir solo. Tus mundos, skins y ajustes se conservan."
+                : "Esta copia del launcher no se instaló con el instalador oficial: se abrirá la página de descargas."));
+        body.getStyleClass().add("modal-body");
+        body.setWrapText(true);
+
+        VBox card = new VBox(14, title, body);
+        card.getStyleClass().add("modal-card");
+        card.setMaxWidth(520);
+        card.setMaxHeight(Region.USE_PREF_SIZE);
+
+        if (info.notes() != null && !info.notes().isBlank()) {
+            Label notes = new Label(info.notes());
+            notes.getStyleClass().add("modal-notes");
+            notes.setWrapText(true);
+            ScrollPane notesScroll = new ScrollPane(notes);
+            notesScroll.getStyleClass().add("modal-notes-scroll");
+            notesScroll.setFitToWidth(true);
+            notesScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            notesScroll.setMaxHeight(160);
+            card.getChildren().add(notesScroll);
+        }
+
+        Label progressLabel = new Label("Preparando descarga...");
+        progressLabel.getStyleClass().add("settings-hint");
+        Region progressFill = new Region();
+        progressFill.getStyleClass().add("modal-progress-fill");
+        StackPane progressTrack = new StackPane(progressFill);
+        progressTrack.getStyleClass().add("modal-progress-track");
+        progressTrack.setAlignment(Pos.CENTER_LEFT);
+        setRegionWidth(progressFill, 0.0);
+        VBox progressBox = new VBox(8, progressLabel, progressTrack);
+        progressBox.setVisible(false);
+        progressBox.setManaged(false);
+        card.getChildren().add(progressBox);
+
+        Button later = new Button("Más tarde");
+        later.getStyleClass().add("ghost-btn");
+        Button now = new Button(canInstall ? "Actualizar ahora" : "Ir a la descarga");
+        now.getStyleClass().add("primary-btn");
+        now.setDefaultButton(true);
+        Region actionsSpacer = new Region();
+        HBox.setHgrow(actionsSpacer, Priority.ALWAYS);
+        HBox actions = new HBox(10, actionsSpacer, later, now);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        actions.setPadding(new Insets(6, 0, 0, 0));
+        card.getChildren().add(actions);
+
+        later.setOnAction(event -> {
+            closeModal();
+            showToast("update", "Actualización pendiente",
+                    "Puedes instalarla cuando quieras desde la campana de notificaciones.", this::openNotificationsPanel);
+        });
+        now.setOnAction(event -> {
+            if (!canInstall) {
+                openExternalUrl(info.pageUrl());
+                closeModal();
+                return;
+            }
+            startUpdateDownload(info, now, later, progressBox, progressLabel, progressTrack, progressFill);
+        });
+
+        updateNotificationsDropdownVisibility(false, false);
+        modalLayer.getChildren().setAll(card);
+        modalLayer.setVisible(true);
+        modalLayer.setManaged(true);
+        modalLayer.toFront();
+        modalLayer.setOpacity(0.0);
+        card.setScaleX(0.96);
+        card.setScaleY(0.96);
+        new Timeline(new KeyFrame(motion(220),
+                new KeyValue(modalLayer.opacityProperty(), 1.0, Interpolator.EASE_OUT),
+                new KeyValue(card.scaleXProperty(), 1.0, Interpolator.EASE_OUT),
+                new KeyValue(card.scaleYProperty(), 1.0, Interpolator.EASE_OUT)
+        )).play();
+    }
+
+    private void startUpdateDownload(
+            LauncherUpdater.UpdateInfo info,
+            Button now,
+            Button later,
+            VBox progressBox,
+            Label progressLabel,
+            StackPane progressTrack,
+            Region progressFill
+    ) {
+        updateInstallInProgress = true;
+        now.setDisable(true);
+        later.setDisable(true);
+        now.setText("Descargando...");
+        progressBox.setVisible(true);
+        progressBox.setManaged(true);
+        progressLabel.setText("Descargando " + info.assetName() + "...");
+
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return launcherUpdater.downloadInstaller(info, (done, total) -> Platform.runLater(() -> {
+                            double fraction = total > 0 ? Math.min(1.0, done / (double) total) : 0.0;
+                            setRegionWidth(progressFill, Math.rint(resolveTrackContentWidth(progressTrack) * fraction));
+                            progressLabel.setText(String.format(Locale.US, "Descargando... %.1f de %.1f MB",
+                                    done / 1048576.0, Math.max(done, total) / 1048576.0));
+                        }));
+                    } catch (IOException ex) {
+                        throw new CompletionException(ex);
+                    }
+                })
+                .whenComplete((msi, error) -> Platform.runLater(() -> {
+                    if (error != null) {
+                        updateInstallInProgress = false;
+                        now.setDisable(false);
+                        later.setDisable(false);
+                        now.setText("Reintentar");
+                        progressLabel.setText("No se pudo descargar: " + rootMessage(error));
+                        return;
+                    }
+                    setRegionWidth(progressFill, resolveTrackContentWidth(progressTrack));
+                    now.setText("Instalando...");
+                    progressLabel.setText("Abriendo el instalador. El launcher se cerrará y volverá a abrirse al terminar.");
+                    try {
+                        LauncherUpdater.startInstaller(msi);
+                    } catch (IOException ex) {
+                        updateInstallInProgress = false;
+                        now.setDisable(false);
+                        later.setDisable(false);
+                        now.setText("Reintentar");
+                        progressLabel.setText("No se pudo abrir el instalador: " + rootMessage(ex));
+                        return;
+                    }
+                    // Hay que liberar los archivos del launcher antes de que el MSI los reemplace.
+                    delay(900, () -> {
+                        shutdownBackgroundServices();
+                        Platform.exit();
+                        System.exit(0);
+                    });
+                }));
+    }
+
+    private void closeModal() {
+        if (modalLayer == null || updateInstallInProgress) {
+            return;
+        }
+        FadeTransition out = fade(modalLayer, 0.0, 180);
+        out.setOnFinished(event -> {
+            modalLayer.setVisible(false);
+            modalLayer.setManaged(false);
+            modalLayer.getChildren().clear();
+        });
+        out.play();
+    }
+
+    private static String rootMessage(Throwable error) {
+        Throwable current = error;
+        while (current instanceof CompletionException && current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current == null ? null : current.getMessage();
+        return message == null || message.isBlank() ? "error desconocido" : message;
+    }
+
+    // ------------------------------------------------------------------
+    // Dialogos
+    // ------------------------------------------------------------------
+
+    /** Aplica el tema del launcher a los Alert de JavaFX (sin la barra de Windows). */
+    private void styleDialog(Alert alert) {
+        Stage owner = resolveStage();
+        if (owner != null && owner.isShowing()) {
+            alert.initOwner(owner);
+        }
+        alert.initStyle(StageStyle.TRANSPARENT);
+        alert.setGraphic(null);
+        DialogPane pane = alert.getDialogPane();
+        pane.getStyleClass().add("sc-dialog");
+        URL css = MainApp.class.getResource("style.css");
+        if (css != null && !pane.getStylesheets().contains(css.toExternalForm())) {
+            pane.getStylesheets().add(css.toExternalForm());
+        }
+        alert.setOnShowing(event -> {
+            if (pane.getScene() != null) {
+                pane.getScene().setFill(Color.TRANSPARENT);
+            }
+        });
     }
 }

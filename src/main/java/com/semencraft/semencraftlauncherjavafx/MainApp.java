@@ -27,8 +27,7 @@ import javax.imageio.ImageIO;
 
 public class MainApp extends Application {
 
-    public static String FONT_FAMILY = null;
-    public static String HEADING_FONT_FAMILY = null;
+    private static final String[] CERA_PRO_WEIGHTS = {"Light", "Medium", "Bold", "Black"};
 
     private static final double DESIGN_WIDTH = 1366.0;
     private static final double DESIGN_HEIGHT = 768.0;
@@ -73,10 +72,10 @@ public class MainApp extends Application {
             stage.initStyle(StageStyle.UNDECORATED);
 
             Scene scene = new Scene(root, width, height);
-            scene.setFill(Color.web("#0a0f16"));
+            scene.setFill(Color.web("#0b0a12"));
             applyStyles(scene);
 
-            stage.setTitle("SemenCraft Launcher");
+            stage.setTitle("Semencraft Launcher");
             stage.setScene(scene);
             stage.setMinWidth(920);
             stage.setMinHeight(620);
@@ -209,9 +208,18 @@ public class MainApp extends Application {
         return null;
     }
 
+    /**
+     * Cera Pro en cuatro pesos. JavaFX las registra por nombre completo
+     * (CeraPro-Medium, CeraPro-Bold...), que es como las referencia style.css.
+     */
     private void loadCustomFont() {
-        FONT_FAMILY = loadFontFamily("font.ttf", 14);
-        HEADING_FONT_FAMILY = loadFontFamily("font2.ttf", 18);
+        for (String weight : CERA_PRO_WEIGHTS) {
+            loadFontFamily("fonts/CeraPro-" + weight + ".ttf", 14);
+        }
+        // Fuente pixelada de siempre ("Minecraft"): libro de notificaciones y avisos.
+        loadFontFamily("font.ttf", 14);
+        // "Minecraft Ten": titulos y botones principales.
+        loadFontFamily("font2.ttf", 14);
     }
 
     private static String loadFontFamily(String assetName, double size) {
@@ -253,9 +261,6 @@ public class MainApp extends Application {
     }
 
     private static void applyRootFont(Scene scene) {
-        String fontPart = FONT_FAMILY != null
-                ? "-fx-font-family: '" + FONT_FAMILY + "'; "
-                : "";
 
         double screenHeight = Screen.getPrimary().getBounds().getHeight();
         double screenScale = clamp(screenHeight / 1080.0, 0.92, 1.25);
@@ -269,7 +274,7 @@ public class MainApp extends Application {
         double scale = clamp(sceneScale * 0.70 + screenScale * 0.30, 0.90, 1.28);
         double fontSize = 14.0 * scale;
 
-        scene.getRoot().setStyle(fontPart + "-fx-font-size: " + String.format(Locale.US, "%.2fpx;", fontSize));
+        scene.getRoot().setStyle("-fx-font-size: " + String.format(Locale.US, "%.2fpx;", fontSize));
     }
 
     private static double clamp(double value, double min, double max) {

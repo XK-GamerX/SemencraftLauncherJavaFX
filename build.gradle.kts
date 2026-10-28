@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.semencraft.semencraftlauncherjavafx"
-version = "1.0.3"
+version = "1.2.0"
 
 repositories {
     mavenCentral()
@@ -24,6 +24,10 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
 }
 
 javafx {
@@ -52,6 +56,8 @@ val windowsUpgradeUuid = "96c730f0-e00e-489e-81d4-3e4df5fcb266"
 val windowsPrimaryIcon = layout.projectDirectory.file("src/main/resources/com/semencraft/semencraftlauncherjavafx/assets/circular-blue.ico").asFile
 val windowsFallbackIcon = layout.projectDirectory.file("src/main/resources/com/semencraft/semencraftlauncherjavafx/assets/icon.ico").asFile
 val windowsLicense = layout.projectDirectory.file("installer/LICENSE.txt").asFile
+val windowsWixResources = layout.projectDirectory.dir("installer/wix").asFile
+val windowsMsiPatchScript = layout.projectDirectory.file("installer/patch-msi.ps1").asFile
 
 fun normalizeInstallerVersion(raw: String): String {
     val numericParts = Regex("\\d+").findAll(raw).map { it.value }.toList()
@@ -79,6 +85,25 @@ val jpackageBinary = if (isWindowsHost) "jpackage.exe" else "jpackage"
 val installerVersion = providers.gradleProperty("installerVersion")
     .map(::normalizeInstallerVersion)
     .orElse(normalizeInstallerVersion(project.version.toString()))
+
+// Version visible para el launcher (chequeo de actualizaciones contra GitHub Releases).
+val generatedVersionDir = layout.buildDirectory.dir("generated/launcher-version")
+val generateLauncherVersion by tasks.registering {
+    val versionValue = installerVersion
+    val outputDir = generatedVersionDir
+    inputs.property("version", versionValue)
+    outputs.dir(outputDir)
+    doLast {
+        val file = outputDir.get()
+            .file("com/semencraft/semencraftlauncherjavafx/launcher-version.properties")
+            .asFile
+        file.parentFile.mkdirs()
+        file.writeText("version=${versionValue.get()}\n")
+    }
+}
+sourceSets.main {
+    resources.srcDir(generateLauncherVersion)
+}
 
 val installerInputDir = layout.buildDirectory.dir("installer/input")
 val installerOutputDir = layout.buildDirectory.dir("installer/output")
@@ -190,11 +215,31 @@ tasks.register<Exec>("packageLauncherInstaller") {
         if (windowsLicense.exists()) {
             args += listOf("--license-file", windowsLicense.absolutePath)
         }
+        // main.wxs propio: detecta/desinstala versiones previas, textos en espanol,
+        // recuerda la carpeta y permite abrir el launcher al terminar.
+        if (windowsWixResources.isDirectory) {
+            args += listOf("--resource-dir", windowsWixResources.absolutePath)
+            // jpackage solo copia los recursos que conoce: main.wxs encuentra las imagenes
+            // del instalador (banner.bmp, dialog.bmp) con esta variable de entorno.
+            environment("SEMENCRAFT_WIX_RES", windowsWixResources.absolutePath)
+        }
         val installerIcon = resolveWindowsInstallerIcon()
         if (installerIcon != null) {
             args += listOf("--icon", installerIcon.absolutePath)
         }
         commandLine(jpackageBinary, *args.toTypedArray())
+    }
+    // Oculta los botones "Atras"/"Cancelar" desactivados de las pantallas finales (installer/patch-msi.ps1).
+    doLast {
+        val msi = installerOutputDir.get().asFile.listFiles { f -> f.extension == "msi" }?.maxByOrNull { it.lastModified() }
+            ?: throw GradleException("No se encontro el MSI generado.")
+        val patch = ProcessBuilder(
+            "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", windowsMsiPatchScript.absolutePath, "-MsiPath", msi.absolutePath
+        ).inheritIO().start()
+        if (patch.waitFor() != 0) {
+            throw GradleException("patch-msi.ps1 fallo con codigo ${patch.exitValue()}")
+        }
     }
 }
 

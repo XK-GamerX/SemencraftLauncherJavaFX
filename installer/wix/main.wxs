@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  main.wxs personalizado para jpackage (se usa via resource-dir).
+  Basado en la plantilla de jpackage del JDK 21 con estos cambios:
+
+  * ProductCode nuevo en cada build: asi una build nueva SIEMPRE puede
+    reemplazar a la instalada, aunque tenga el mismo numero de version.
+  * Detecta cualquier version previa del launcher (mas vieja, igual o mas
+    nueva) y muestra el paso "Version anterior detectada". La version previa
+    se desinstala por completo antes de instalar la nueva.
+  * Recuerda la carpeta de instalacion para futuras actualizaciones.
+  * Casilla "Iniciar Semencraft Launcher" al terminar.
+  * Imagenes propias en la bienvenida, el final y la cabecera de cada paso.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+  <?ifdef JpIsSystemWide ?>
+    <?define JpInstallScope="perMachine"?>
+    <?define SemencraftRegRoot="HKLM"?>
+  <?else?>
+    <?define JpInstallScope="perUser"?>
+    <?define SemencraftRegRoot="HKCU"?>
+  <?endif?>
+
+  <?define JpInstallerVersion=200 ?>
+  <?define JpCompressedMsi=yes ?>
+  <?define SemencraftRegKey="Software\Semencraft\Semencraft Launcher" ?>
+
+  <Product
+    Id="*"
+    Name="$(var.JpAppName)"
+    Language="3082"
+    Codepage="1252"
+    Version="$(var.JpAppVersion)"
+    Manufacturer="$(var.JpAppVendor)"
+    UpgradeCode="$(var.JpProductUpgradeCode)">
+
+    <Package
+      Description="$(var.JpAppDescription)"
+      Manufacturer="$(var.JpAppVendor)"
+      InstallerVersion="$(var.JpInstallerVersion)"
+      Compressed="$(var.JpCompressedMsi)"
+      InstallScope="$(var.JpInstallScope)" Platform="x64"
+      SummaryCodepage="1252"
+    />
+
+    <Media Id="1" Cabinet="Data.cab" EmbedCab="yes" />
+
+    <!-- Cualquier instalacion previa con el mismo UpgradeCode se detecta y se quita. -->
+    <Upgrade Id="$(var.JpProductUpgradeCode)">
+      <UpgradeVersion
+        OnlyDetect="no"
+        Property="JP_UPGRADABLE_FOUND"
+        Minimum="0.0.0"
+        IncludeMinimum="yes"
+        Maximum="$(var.JpAppVersion)"
+        IncludeMaximum="yes"
+        MigrateFeatures="yes" />
+      <UpgradeVersion
+        OnlyDetect="no"
+        Property="JP_DOWNGRADABLE_FOUND"
+        Minimum="$(var.JpAppVersion)"
+        IncludeMinimum="no"
+        MigrateFeatures="yes" />
+    </Upgrade>
+
+    <Binary Id="JpCaDll" SourceFile="wixhelper.dll"/>
+    <CustomAction Id="JpFindRelatedProducts" BinaryKey="JpCaDll" DllEntry="FindRelatedProductsEx" />
+
+    <!-- Version instalada (para mostrarla en el dialogo) y carpeta previa.
+         Las instalaciones anteriores a este instalador no guardaban estos datos:
+         en ese caso el dialogo muestra "instalacion anterior" sin numero. -->
+    <Property Id="SEMENCRAFT_PREVIOUS_VERSION">
+      <RegistrySearch Id="SemencraftPreviousVersionSearch"
+                      Root="$(var.SemencraftRegRoot)"
+                      Key="$(var.SemencraftRegKey)"
+                      Name="Version"
+                      Type="raw" />
+    </Property>
+    <Property Id="SEMENCRAFT_SAVED_DIR">
+      <RegistrySearch Id="SemencraftSavedDirSearch"
+                      Root="$(var.SemencraftRegRoot)"
+                      Key="$(var.SemencraftRegKey)"
+                      Name="InstallDir"
+                      Type="raw" />
+    </Property>
+
+    <CustomAction Id="SemencraftUseSavedDir" Property="INSTALLDIR" Value="[SEMENCRAFT_SAVED_DIR]" />
+
+    <!-- Standard required root -->
+    <Directory Id="TARGETDIR" Name="SourceDir"/>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="SemencraftInstallDirMemory" Guid="{6F4B0C59-3D2E-4C1A-9C61-2B7D9E4A51C3}" Win64="yes">
+        <RegistryValue Root="$(var.SemencraftRegRoot)" Key="$(var.SemencraftRegKey)"
+                       Name="InstallDir" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
+        <RegistryValue Root="$(var.SemencraftRegRoot)" Key="$(var.SemencraftRegKey)"
+                       Name="Version" Type="string" Value="$(var.JpAppVersion)" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="DefaultFeature" Title="!(loc.MainFeatureTitle)" Level="1">
+      <ComponentGroupRef Id="Shortcuts"/>
+      <ComponentGroupRef Id="Files"/>
+      <ComponentGroupRef Id="FileAssociations"/>
+      <ComponentRef Id="SemencraftInstallDirMemory"/>
+    </Feature>
+
+    <CustomAction Id="JpSetARPINSTALLLOCATION" Property="ARPINSTALLLOCATION" Value="[INSTALLDIR]" />
+    <CustomAction Id="JpSetARPCOMMENTS" Property="ARPCOMMENTS" Value="$(var.JpAppDescription)" />
+    <CustomAction Id="JpSetARPCONTACT" Property="ARPCONTACT" Value="$(var.JpAppVendor)" />
+    <CustomAction Id="JpSetARPSIZE" Property="ARPSIZE" Value="$(var.JpAppSizeKb)" />
+
+    <?ifdef JpHelpURL ?>
+      <CustomAction Id="JpSetARPHELPLINK" Property="ARPHELPLINK" Value="$(var.JpHelpURL)" />
+    <?endif?>
+
+    <?ifdef JpAboutURL ?>
+      <CustomAction Id="JpSetARPURLINFOABOUT" Property="ARPURLINFOABOUT" Value="$(var.JpAboutURL)" />
+    <?endif?>
+
+    <?ifdef JpUpdateURL ?>
+      <CustomAction Id="JpSetARPURLUPDATEINFO" Property="ARPURLUPDATEINFO" Value="$(var.JpUpdateURL)" />
+    <?endif?>
+
+    <?ifdef JpIcon ?>
+    <Property Id="ARPPRODUCTICON" Value="JpARPPRODUCTICON"/>
+    <Icon Id="JpARPPRODUCTICON" SourceFile="$(var.JpIcon)"/>
+    <?endif?>
+
+    <!-- Imagenes propias (design/installer/InstallerArt.java). La carpeta llega desde Gradle. -->
+    <?ifdef env.SEMENCRAFT_WIX_RES ?>
+      <WixVariable Id="WixUIBannerBmp" Value="$(env.SEMENCRAFT_WIX_RES)\banner.bmp" />
+      <WixVariable Id="WixUIDialogBmp" Value="$(env.SEMENCRAFT_WIX_RES)\dialog.bmp" />
+    <?endif?>
+
+    <!-- Pantalla final: aviso de que los datos se conservan y donde encontrar el launcher. -->
+    <CustomAction Id="SemencraftSetExitText" Property="WIXUI_EXITDIALOGOPTIONALTEXT" Value="!(loc.SemencraftExitText)" />
+
+    <!-- Abrir el launcher al terminar (solo instalacion, no reparar/quitar). -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="SemencraftSetLaunchText" Property="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.SemencraftLaunchAfterInstall)" />
+    <CustomAction Id="SemencraftSetLaunchTarget" Property="WixShellExecTarget" Value="[INSTALLDIR]$(var.JpAppName).exe" />
+    <CustomAction Id="SemencraftLaunchApp" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" Return="ignore" />
+
+    <UIRef Id="JpUI"/>
+
+    <UI>
+      <Dialog Id="SemencraftPreviousVersionDlg" Width="370" Height="270" Title="!(loc.SemencraftPrevDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="290" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgTitle)" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgDescription)" />
+
+        <Control Id="VersionText" Type="Text" X="25" Y="58" Width="320" Height="15" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgVersion)">
+          <Condition Action="hide">NOT SEMENCRAFT_PREVIOUS_VERSION</Condition>
+          <Condition Action="show">SEMENCRAFT_PREVIOUS_VERSION</Condition>
+        </Control>
+        <Control Id="VersionUnknownText" Type="Text" X="25" Y="58" Width="320" Height="15" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgVersionUnknown)">
+          <Condition Action="hide">SEMENCRAFT_PREVIOUS_VERSION</Condition>
+          <Condition Action="show">NOT SEMENCRAFT_PREVIOUS_VERSION</Condition>
+        </Control>
+        <Control Id="Body" Type="Text" X="25" Y="80" Width="320" Height="54" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgBody)" />
+        <Control Id="DataNote" Type="Text" X="25" Y="140" Width="320" Height="40" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgData)" />
+        <Control Id="Steps" Type="Text" X="25" Y="186" Width="320" Height="40" NoPrefix="yes"
+                 Text="!(loc.SemencraftPrevDlgSteps)" />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="136" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="WelcomeDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="196" Y="243" Width="100" Height="17" Default="yes"
+                 Text="!(loc.SemencraftPrevDlgUninstallButton)">
+          <Publish Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="SemencraftPreviousVersionDlg" Order="9">NOT Installed AND (JP_UPGRADABLE_FOUND OR JP_DOWNGRADABLE_FOUND)</Publish>
+      <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="SemencraftPreviousVersionDlg" Order="9">JP_UPGRADABLE_FOUND OR JP_DOWNGRADABLE_FOUND</Publish>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="SemencraftSetLaunchTarget" Order="998">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="SemencraftLaunchApp" Order="999">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
+    </UI>
+
+    <InstallExecuteSequence>
+      <Custom Action="JpSetARPINSTALLLOCATION" After="CostFinalize">Not Installed</Custom>
+      <Custom Action="JpSetARPCOMMENTS" After="CostFinalize">Not Installed</Custom>
+      <Custom Action="JpSetARPCONTACT" After="CostFinalize">Not Installed</Custom>
+      <Custom Action="JpSetARPSIZE" After="CostFinalize">Not Installed</Custom>
+      <?ifdef JpHelpURL ?>
+        <Custom Action="JpSetARPHELPLINK" After="CostFinalize">Not Installed</Custom>
+      <?endif?>
+      <?ifdef JpAboutURL ?>
+        <Custom Action="JpSetARPURLINFOABOUT" After="CostFinalize">Not Installed</Custom>
+      <?endif?>
+      <?ifdef JpUpdateURL ?>
+        <Custom Action="JpSetARPURLUPDATEINFO" After="CostFinalize">Not Installed</Custom>
+      <?endif?>
+
+      <Custom Action="SemencraftUseSavedDir" After="AppSearch">SEMENCRAFT_SAVED_DIR AND NOT Installed</Custom>
+
+      <!-- Primero se desinstala por completo la version anterior, despues se instala la nueva. -->
+      <RemoveExistingProducts Before="CostInitialize"/>
+      <Custom Action="JpFindRelatedProducts" After="FindRelatedProducts"/>
+
+      <!-- Auto-actualizacion desde el launcher (msiexec /passive SEMENCRAFT_RELAUNCH=1): reabrirlo al terminar. -->
+      <Custom Action="SemencraftSetLaunchTarget" After="InstallFinalize">SEMENCRAFT_RELAUNCH = "1" AND NOT REMOVE</Custom>
+      <Custom Action="SemencraftLaunchApp" After="SemencraftSetLaunchTarget">SEMENCRAFT_RELAUNCH = "1" AND NOT REMOVE</Custom>
+    </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="JpFindRelatedProducts" After="FindRelatedProducts"/>
+      <Custom Action="SemencraftUseSavedDir" After="AppSearch">SEMENCRAFT_SAVED_DIR AND NOT Installed</Custom>
+      <Custom Action="SemencraftSetLaunchText" After="SemencraftUseSavedDir">NOT Installed</Custom>
+      <Custom Action="SemencraftSetExitText" After="SemencraftSetLaunchText">NOT Installed</Custom>
+    </InstallUISequence>
+
+  </Product>
+</Wix>

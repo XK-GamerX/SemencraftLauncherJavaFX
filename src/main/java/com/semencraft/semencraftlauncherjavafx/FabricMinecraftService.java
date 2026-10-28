@@ -119,12 +119,15 @@ final class FabricMinecraftService {
 
         report(progress, "Sincronizando modpack Semencraft...", 0.04, 0.0);
         ModpackManager modpackManager = new ModpackManager();
+        modpackManager.setSyncProgressListener((status, fraction) -> report(progress, status, 0.04, fraction));
         ModpackManager.Catalog catalog = modpackManager.loadCatalog();
         ModpackManager.Selection selection = resolveSelectionForLaunch(modpackManager, catalog, config);
-        ModpackManager.SyncResult syncResult = modpackManager.synchronizeForLaunch(catalog, selection, gameDir);
-        String syncStatus = "Modpack sincronizado";
+        ModpackManager.SyncResult syncResult = modpackManager.synchronizeForLaunch(catalog, selection, gameDir, username);
+        String syncStatus = syncResult.copiedFiles() == 0
+                ? "Modpack al dia"
+                : "Modpack sincronizado (" + syncResult.copiedFiles() + " archivos actualizados)";
         if (syncResult.removedMods() > 0 || syncResult.removedResourcepacks() > 0) {
-            syncStatus += " (limpieza: " + (syncResult.removedMods() + syncResult.removedResourcepacks()) + " archivos)";
+            syncStatus += " - limpieza: " + (syncResult.removedMods() + syncResult.removedResourcepacks()) + " archivos";
         }
         report(progress, syncStatus + "...", 0.05, 1.0);
 

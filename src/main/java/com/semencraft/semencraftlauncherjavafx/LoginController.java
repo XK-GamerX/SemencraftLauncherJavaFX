@@ -15,17 +15,22 @@ import javafx.beans.value.ObservableDoubleValue;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.effect.GaussianBlur;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Duration;
 
 import java.time.Instant;
@@ -41,13 +46,17 @@ public class LoginController {
     @FXML private Region loginBackdrop;
     @FXML private ScrollPane loginScroll;
     @FXML private VBox loginOuter;
-    @FXML private VBox loginCard;
+    @FXML private HBox loginCard;
+    @FXML private VBox loginFormPanel;
+    @FXML private StackPane loginArt;
+    @FXML private ImageView imgLoginArt;
     @FXML private VBox loginPane;
     @FXML private VBox registerPane;
     @FXML private ImageView imgLoginLogo;
 
     @FXML private TextField txtLoginUsername;
     @FXML private PasswordField txtLoginPassword;
+    @FXML private CheckBox chkRememberMe;
     @FXML private Label lblLoginError;
     @FXML private Button btnLogin;
     @FXML private Hyperlink linkShowRegister;
@@ -68,6 +77,8 @@ public class LoginController {
     @FXML private Button btnVerifyCode;
     @FXML private Hyperlink linkBackToRegister;
 
+    private static final double ART_RADIUS = 14;
+
     private final SupabaseDatabaseService githubDatabase = new SupabaseDatabaseService();
     private Consumer<String> onSuccess;
     private AuthMode authMode = AuthMode.LOGIN;
@@ -83,15 +94,22 @@ public class LoginController {
         this.onSuccess = cb;
     }
 
+    /** Si es false, el launcher no guarda la sesion y pedira login la proxima vez. */
+    public boolean isRememberMe() {
+        return chkRememberMe == null || chkRememberMe.isSelected();
+    }
+
     @FXML
     public void initialize() {
-        var logo = LauncherController.loadAsset("title.png");
+        // Logo textual simplificado; el logo grande (title.png) queda solo en Inicio.
+        var logo = LauncherController.loadAsset("logo-semencraft.png");
         if (logo != null) {
             imgLoginLogo.setImage(logo);
             imgLoginLogo.setEffect(null);
         }
 
         blurLoginBackdrop();
+        setupArtPanel();
         bindResponsiveSizes();
         configureKeyboardFlow();
         switchMode(AuthMode.LOGIN, false);
@@ -99,27 +117,77 @@ public class LoginController {
     }
 
     private void bindResponsiveSizes() {
-        DoubleBinding cardWidth = clamp(loginRoot.widthProperty().multiply(0.48), 360, 640);
+        DoubleBinding cardWidth = clamp(loginRoot.widthProperty().multiply(0.74), 720, 1080);
+        DoubleBinding cardHeight = clamp(loginRoot.heightProperty().multiply(0.80), 500, 640);
         loginCard.prefWidthProperty().bind(cardWidth);
         loginCard.maxWidthProperty().bind(cardWidth);
-        loginCard.minWidthProperty().bind(clamp(loginRoot.widthProperty().multiply(0.34), 340, 460));
+        loginCard.minHeightProperty().bind(cardHeight);
+        loginCard.setMaxHeight(Region.USE_PREF_SIZE);
 
-        imgLoginLogo.fitWidthProperty().bind(clamp(loginCard.widthProperty().multiply(0.56), 140, 300));
+        DoubleBinding formWidth = clamp(cardWidth.multiply(0.42), 360, 440);
+        loginFormPanel.prefWidthProperty().bind(formWidth);
+        loginFormPanel.minWidthProperty().bind(formWidth);
+        loginFormPanel.maxWidthProperty().bind(formWidth);
+
+        imgLoginLogo.fitWidthProperty().bind(clamp(loginRoot.heightProperty().multiply(0.17), 100, 140));
 
         if (loginScroll != null) {
-            loginScroll.setPannable(true);
+            loginScroll.setPannable(false);
         }
 
-        bindControlHeights(txtLoginUsername, txtLoginPassword, txtRegisterMinecraftUser, txtRegisterPassword, txtRegisterPasswordRepeat, txtRegisterDiscordUser);
-        bindButtonHeights(btnLogin, btnRegister);
-        bindButtonHeights(btnVerifyCode);
+        bindControlHeights(txtLoginUsername, txtLoginPassword, txtRegisterMinecraftUser, txtRegisterPassword,
+                txtRegisterPasswordRepeat, txtRegisterDiscordUser, txtVerificationCode);
+        bindButtonHeights(btnLogin, btnRegister, btnVerifyCode);
 
-        loginOuter.minHeightProperty().bind(loginRoot.heightProperty());
-        loginOuter.prefWidthProperty().bind(loginRoot.widthProperty());
+        // Alto del area visible del scroll: asi la barra solo sale si la tarjeta de verdad no entra.
+        loginOuter.minHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> loginScroll.getViewportBounds().getHeight(), loginScroll.viewportBoundsProperty()));
 
         loginRoot.widthProperty().addListener((obs, oldV, newV) -> updateOuterPadding());
         loginRoot.heightProperty().addListener((obs, oldV, newV) -> updateOuterPadding());
         Platform.runLater(this::updateOuterPadding);
+    }
+
+    /**
+     * Imagen del juego en blanco y negro que llena la mitad derecha (recorte tipo "cover").
+     * El recorte se extiende a la izquierda para que solo se redondeen las esquinas de afuera.
+     */
+    private void setupArtPanel() {
+        Image art = LauncherController.loadAsset("bg.png");
+        if (art != null) {
+            imgLoginArt.setImage(art);
+        }
+        imgLoginArt.setEffect(new ColorAdjust(0, -1.0, -0.38, 0.05));
+        // Fuera del layout: si no, el tamano original de la imagen estira la tarjeta.
+        imgLoginArt.setManaged(false);
+        loginArt.setPrefWidth(0);
+
+        Rectangle clip = new Rectangle();
+        clip.setArcWidth(ART_RADIUS * 2);
+        clip.setArcHeight(ART_RADIUS * 2);
+        clip.setX(-ART_RADIUS);
+        clip.widthProperty().bind(loginArt.widthProperty().add(ART_RADIUS));
+        clip.heightProperty().bind(loginArt.heightProperty());
+        loginArt.setClip(clip);
+
+        loginArt.widthProperty().addListener((obs, oldV, newV) -> fitArtImage());
+        loginArt.heightProperty().addListener((obs, oldV, newV) -> fitArtImage());
+    }
+
+    private void fitArtImage() {
+        Image art = imgLoginArt.getImage();
+        double w = loginArt.getWidth();
+        double h = loginArt.getHeight();
+        if (art == null || w <= 0 || h <= 0) {
+            return;
+        }
+        double scale = Math.max(w / art.getWidth(), h / art.getHeight());
+        double cropW = w / scale;
+        double cropH = h / scale;
+        imgLoginArt.setViewport(new Rectangle2D((art.getWidth() - cropW) / 2, (art.getHeight() - cropH) / 2, cropW, cropH));
+        imgLoginArt.setFitWidth(w);
+        imgLoginArt.setFitHeight(h);
+        imgLoginArt.relocate(0, 0);
     }
 
     private void bindControlHeights(TextField... controls) {
@@ -130,7 +198,7 @@ public class LoginController {
             if (control == null) {
                 continue;
             }
-            control.prefHeightProperty().bind(clamp(loginRoot.heightProperty().multiply(0.072), 44, 58));
+            control.prefHeightProperty().bind(clamp(loginRoot.heightProperty().multiply(0.062), 42, 48));
         }
     }
 
@@ -142,7 +210,7 @@ public class LoginController {
             if (button == null) {
                 continue;
             }
-            button.prefHeightProperty().bind(clamp(loginRoot.heightProperty().multiply(0.074), 48, 60));
+            button.prefHeightProperty().bind(clamp(loginRoot.heightProperty().multiply(0.064), 44, 50));
         }
     }
 
@@ -189,7 +257,7 @@ public class LoginController {
         double h = loginRoot.getHeight();
         double w = loginRoot.getWidth();
 
-        double vertical = clamp(h * 0.08, 18, 72);
+        double vertical = clamp(h * 0.07, 18, 64);
         double horizontal = clamp(w * 0.03, 14, 34);
 
         loginOuter.setStyle(String.format(Locale.US,
@@ -229,10 +297,9 @@ public class LoginController {
         if (loginBackdrop == null) {
             return;
         }
-        loginBackdrop.setEffect(new GaussianBlur(84));
-        loginBackdrop.setCache(true);
-        loginBackdrop.setScaleX(1.16);
-        loginBackdrop.setScaleY(1.16);
+        // El fondo es un color plano: el desenfoque real lo aplica LauncherController
+        // sobre la sidebar y el contenido. Aqui no hace falta un GaussianBlur extra.
+        loginBackdrop.setEffect(null);
     }
 
     public void resetAndAnimate() {
@@ -330,7 +397,7 @@ public class LoginController {
                 .supplyAsync(() -> githubDatabase.startRegistration(new SupabaseDatabaseService.RegistrationRequest(minecraftUser, password, discordUser)))
                 .thenAccept(result -> Platform.runLater(() -> {
                     setBusy(false);
-                    lblRegisterHint.setText("Debe coincidir con un usuario real del servidor de Discord.");
+                    lblRegisterHint.setText("Debe coincidir con tu usuario en el servidor de Discord.");
                     if (!result.success()) {
                         showError(lblRegisterError, result.message());
                         shake(txtRegisterDiscordUser);
@@ -520,10 +587,10 @@ public class LoginController {
         txtRegisterDiscordUser.clear();
         txtVerificationCode.clear();
         if (lblRegisterHint != null) {
-            lblRegisterHint.setText("Debe coincidir con un usuario real del servidor de Discord.");
+            lblRegisterHint.setText("Debe coincidir con tu usuario en el servidor de Discord.");
         }
         if (lblVerificationHint != null) {
-            lblVerificationHint.setText("Revisa tus MDs en Discord y coloca aqui tu codigo temporal.");
+            lblVerificationHint.setText("Revisa tus MDs en Discord y escribe aquí tu código temporal.");
         }
     }
 

@@ -10,31 +10,30 @@
 
     <top>
         <HBox fx:id="titleBar" styleClass="title-bar" alignment="CENTER_LEFT">
-            <HBox fx:id="titleBarDragArea" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" maxWidth="Infinity">
-                <ImageView fx:id="imgTitleBarIcon" fitHeight="18" preserveRatio="true" smooth="true">
-                    <HBox.margin><Insets left="8" right="8"/></HBox.margin>
-                </ImageView>
-                <Label text="SemenCraft Launcher" styleClass="title-label"/>
+            <HBox fx:id="titleBarDragArea" alignment="CENTER_LEFT" spacing="10" HBox.hgrow="ALWAYS" maxWidth="Infinity">
+                <ImageView fx:id="imgTitleBarIcon" fitHeight="18" preserveRatio="true" smooth="true"/>
+                <Label text="Semencraft Launcher" styleClass="title-label"/>
+                <Label fx:id="lblTitleVersion" text="v1.0" styleClass="title-version-chip"/>
                 <Region HBox.hgrow="ALWAYS"/>
             </HBox>
-            <Button fx:id="btnMinimize" styleClass="win-btn" text="_" focusTraversable="false" mnemonicParsing="false" onAction="#onMinimize"/>
-            <Button fx:id="btnMaxRestore" styleClass="win-btn" text="□" focusTraversable="false" mnemonicParsing="false" onAction="#onMaxRestore"/>
-            <Button fx:id="btnClose" styleClass="win-btn-close" text="X" focusTraversable="false" mnemonicParsing="false" onAction="#onClose"/>
+            <Button fx:id="btnMinimize" styleClass="win-btn" focusTraversable="false" mnemonicParsing="false" onAction="#onMinimize"/>
+            <Button fx:id="btnMaxRestore" styleClass="win-btn" focusTraversable="false" mnemonicParsing="false" onAction="#onMaxRestore"/>
+            <Button fx:id="btnClose" styleClass="win-btn, win-btn-close" focusTraversable="false" mnemonicParsing="false" onAction="#onClose"/>
         </HBox>
     </top>
 
     <center>
         <StackPane fx:id="centerRoot" maxWidth="Infinity" maxHeight="Infinity" minWidth="0" minHeight="0">
             <Region styleClass="app-background" maxWidth="Infinity" maxHeight="Infinity"/>
+            <Region styleClass="app-background-tint" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
 
             <HBox maxWidth="Infinity" maxHeight="Infinity" minWidth="0" minHeight="0" spacing="0">
                 <StackPane fx:id="sidebarGlass"
                            styleClass="sidebar-glass"
-                           minWidth="212"
-                           prefWidth="262"
-                           maxWidth="262">
+                           minWidth="72"
+                           prefWidth="72"
+                           maxWidth="72">
                     <Region fx:id="sidebarBlurLayer" styleClass="sidebar-blur-layer" maxWidth="Infinity" maxHeight="Infinity"/>
-                    <Region styleClass="sidebar-dark-overlay" maxWidth="Infinity" maxHeight="Infinity"/>
 
                     <ScrollPane fx:id="sidebarScroll"
                                 styleClass="sidebar-scroll"
@@ -47,113 +46,81 @@
                         <content>
                             <VBox fx:id="sidebar"
                                   styleClass="sidebar"
-                                  fillWidth="true"
-                                  prefWidth="262"
-                                  minWidth="212"
-                                  maxWidth="262">
+                                  alignment="TOP_CENTER"
+                                  prefWidth="72"
+                                  minWidth="72"
+                                  maxWidth="72">
 
-                                <HBox alignment="CENTER">
-                                    <VBox.margin><Insets top="20" bottom="10"/></VBox.margin>
-                                    <ImageView fx:id="imgLogo" fitHeight="96" preserveRatio="true" smooth="true"/>
-                                </HBox>
+                                <StackPane styleClass="rail-logo">
+                                    <ImageView fx:id="imgLogo" fitWidth="30" fitHeight="30" preserveRatio="true" smooth="true"/>
+                                </StackPane>
 
-                                <Region styleClass="sidebar-divider" prefHeight="1" maxWidth="Infinity">
-                                    <VBox.margin><Insets left="16" right="16" bottom="14"/></VBox.margin>
-                                </Region>
-
-                                <VBox styleClass="nav-box canvas-9patch">
-                                    <VBox.margin><Insets left="10" right="10"/></VBox.margin>
-                                    <Button fx:id="btnNavHome" styleClass="nav-btn" maxWidth="Infinity" onAction="#onHome"/>
-                                    <Button fx:id="btnNavSkin" styleClass="nav-btn" maxWidth="Infinity" onAction="#onSkin"/>
-                                    <Button fx:id="btnNavTeam" styleClass="nav-btn" maxWidth="Infinity" onAction="#onTeam"/>
-                                    <Button fx:id="btnNavSettings" styleClass="nav-btn" maxWidth="Infinity" onAction="#onSettings"/>
+                                <VBox styleClass="nav-box" spacing="8" alignment="TOP_CENTER">
+                                    <Button fx:id="btnNavHome" styleClass="nav-btn" onAction="#onHome"/>
+                                    <Button fx:id="btnNavSkin" styleClass="nav-btn" onAction="#onSkin"/>
+                                    <Button fx:id="btnNavTeam" styleClass="nav-btn" onAction="#onTeam"/>
+                                    <Button fx:id="btnNavSettings" styleClass="nav-btn" onAction="#onSettings"/>
                                 </VBox>
-
-                                <Pane fx:id="semmiePane" prefHeight="115" maxWidth="Infinity">
-                                    <VBox.margin><Insets top="12"/></VBox.margin>
-                                    <ImageView fx:id="imgSemmie"
-                                               fitWidth="90"
-                                               fitHeight="90"
-                                               layoutX="-90"
-                                               layoutY="16"
-                                               preserveRatio="true"/>
-                                </Pane>
 
                                 <Region VBox.vgrow="ALWAYS"/>
 
                                 <Label fx:id="lblStatus"
                                        text="Listo para jugar"
-                                       styleClass="status-label sidebar-status-label"
+                                       styleClass="status-label"
                                        visible="false"
-                                       managed="false"
-                                       maxWidth="Infinity"
-                                       wrapText="true">
-                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
-                                </Label>
-
-                                <HBox styleClass="user-box" alignment="CENTER_LEFT" spacing="12">
-                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
-                                    <StackPane fx:id="currentUserAvatar"
-                                               prefWidth="54"
-                                               prefHeight="54"
-                                               minWidth="54"
-                                               minHeight="54"
-                                               maxWidth="54"
-                                               maxHeight="54"/>
-                                    <VBox spacing="4" alignment="CENTER_LEFT">
-                                        <Label text="USUARIO ACTUAL" styleClass="section-label"/>
-                                        <Label fx:id="lblUsername"
-                                               text="--"
-                                               styleClass="username-label"
-                                               maxWidth="Infinity"/>
-                                    </VBox>
-                                </HBox>
-
-                                <Button fx:id="btnDiscord"
-                                        styleClass="discord-btn"
-                                        maxWidth="Infinity"
-                                        onAction="#onDiscord">
-                                    <VBox.margin><Insets left="10" right="10" bottom="8"/></VBox.margin>
-                                </Button>
-
-                                <Label text="v1.0.3  -  Fabric 1.21.1" styleClass="version-label" maxWidth="Infinity">
-                                    <VBox.margin><Insets left="10" right="10" bottom="14"/></VBox.margin>
-                                </Label>
+                                       managed="false"/>
                             </VBox>
                         </content>
                     </ScrollPane>
                 </StackPane>
 
                 <StackPane fx:id="centerLayer" HBox.hgrow="ALWAYS" minWidth="0" minHeight="0">
-                    <Region styleClass="center-vignette center-vignette-left" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
-                    <Region styleClass="center-vignette center-vignette-top" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
-                    <Region styleClass="center-vignette center-vignette-bottom" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
+                    <Region styleClass="center-vignette" maxWidth="Infinity" maxHeight="Infinity" mouseTransparent="true"/>
 
-                    <VBox fx:id="centerContent" alignment="CENTER" pickOnBounds="false" minHeight="0">
-                        <padding><Insets top="22" right="30" bottom="24" left="30"/></padding>
-                        <ImageView fx:id="imgTitle" fitHeight="250" preserveRatio="true" smooth="true"/>
-                        <Region fx:id="titleGap" prefHeight="16"/>
-                        <StackPane>
-                            <ImageView fx:id="imgPlayBtn"
-                                       fitWidth="180"
-                                       fitHeight="180"
-                                       managed="false"
-                                       visible="false"
-                                       preserveRatio="true"
-                                       smooth="false"/>
-                            <Button fx:id="btnPlay" text="JUGAR" styleClass="play-btn" onAction="#onPlay"/>
-                        </StackPane>
-                        <Region fx:id="statusGap" prefHeight="14"/>
-                    </VBox>
+                    <VBox styleClass="content-column" maxWidth="Infinity" maxHeight="Infinity" minWidth="0" minHeight="0">
+                        <HBox styleClass="top-bar" alignment="CENTER_LEFT" spacing="20">
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <HBox fx:id="userBlock" styleClass="user-block" alignment="CENTER_RIGHT" spacing="12">
+                                <VBox spacing="1" alignment="CENTER_RIGHT">
+                                    <Label fx:id="lblUsername" text="--" styleClass="username-label"/>
+                                    <HBox spacing="6" alignment="CENTER_RIGHT">
+                                        <Region fx:id="userStateDot" styleClass="user-state-dot"/>
+                                        <Label fx:id="lblUserState" text="Sin sesión" styleClass="user-state-label"/>
+                                    </HBox>
+                                </VBox>
+                                <StackPane fx:id="currentUserAvatar"
+                                           prefWidth="40"
+                                           prefHeight="40"
+                                           minWidth="40"
+                                           minHeight="40"
+                                           maxWidth="40"
+                                           maxHeight="40"/>
+                            </HBox>
+                            <Region minWidth="48" prefWidth="48" maxWidth="48"/>
+                        </HBox>
+
+                        <StackPane fx:id="viewStack" VBox.vgrow="ALWAYS" minWidth="0" minHeight="0">
+                            <VBox fx:id="centerContent" styleClass="hero" alignment="CENTER" pickOnBounds="false" minHeight="0" maxWidth="Infinity" spacing="0">
+                                <ImageView fx:id="imgTitle" fitHeight="220" preserveRatio="true" smooth="true" styleClass="hero-logo"/>
+                                <Region fx:id="titleGap" prefHeight="30"/>
+                                <HBox spacing="10" alignment="CENTER">
+                                    <Button fx:id="btnPlay" text="JUGAR" styleClass="play-btn" onAction="#onPlay"/>
+                                    <Button fx:id="btnConfigure" text="CONFIGURAR" styleClass="text-btn" onAction="#onConfigure"/>
+                                </HBox>
+                            </VBox>
 
                     <VBox fx:id="settingsView"
-                          styleClass="settings-view"
+                          styleClass="page-view"
                           visible="false"
                           managed="false"
                           maxWidth="Infinity"
                           maxHeight="Infinity">
-                        <HBox styleClass="settings-top-tabs" alignment="CENTER_LEFT" spacing="8">
-                            <padding><Insets top="14" right="14" bottom="10" left="14"/></padding>
+                        <HBox styleClass="page-header" alignment="CENTER_LEFT" spacing="16">
+                            <Label text="Configuración" styleClass="page-title" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="lblJavaRuntimeStatus" text="Java: verificando..." styleClass="java-status-label"/>
+                        </HBox>
+
+                        <HBox styleClass="settings-top-tabs" alignment="CENTER_LEFT" spacing="4">
                             <Button fx:id="btnSettingsTabGeneral"
                                     text="General"
                                     styleClass="settings-tab-btn"
@@ -170,8 +137,6 @@
                                     text="Sistema"
                                     styleClass="settings-tab-btn"
                                     onAction="#onSettingsTabSystem"/>
-                            <Region HBox.hgrow="ALWAYS"/>
-                            <Label fx:id="lblJavaRuntimeStatus" text="Java: verificando..." styleClass="java-status-label"/>
                         </HBox>
 
                         <StackPane VBox.vgrow="ALWAYS">
@@ -184,106 +149,156 @@
                                         maxHeight="Infinity">
                                 <content>
                                     <VBox fx:id="settingsRoot" styleClass="settings-root" spacing="16">
-                                        <padding><Insets top="14" right="18" bottom="112" left="18"/></padding>
+                                        <padding><Insets top="18" right="28" bottom="112" left="40"/></padding>
 
-                                        <Label text="Configuracion del Launcher (Fabric)" styleClass="settings-title"/>
-                                        <Label text="Gestiona tu perfil de juego, mods, resourcepacks aprobados y requisitos del sistema."
-                                               styleClass="settings-subtitle"
-                                               wrapText="true"/>
-
-                                        <VBox fx:id="paneSettingsGeneral" styleClass="settings-section" spacing="10">
+                                        <VBox fx:id="paneSettingsGeneral" styleClass="settings-section" spacing="0">
                                             <Label text="Lanzamiento y rendimiento" styleClass="settings-section-title"/>
-                                            <HBox spacing="10" alignment="CENTER_LEFT">
-                                                <Label text="RAM asignada" styleClass="settings-field-label"/>
-                                                <Region HBox.hgrow="ALWAYS"/>
-                                                <Label fx:id="lblRamValue" text="6 GB" styleClass="settings-value"/>
+
+                                            <VBox styleClass="setting-row" spacing="10">
+                                                <HBox spacing="10" alignment="CENTER_LEFT">
+                                                    <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                        <Label text="Memoria RAM" styleClass="settings-field-label"/>
+                                                        <Label text="Entre 4 y 8 GB va bien. No uses más de la mitad de la RAM de tu PC."
+                                                               styleClass="settings-hint" wrapText="true"/>
+                                                    </VBox>
+                                                    <Label fx:id="lblRamValue" text="6 GB" styleClass="settings-value-chip"/>
+                                                </HBox>
+                                                <Slider fx:id="sliderRam" min="2" max="16" value="6" majorTickUnit="2" minorTickCount="1" blockIncrement="1" styleClass="ram-slider"/>
+                                            </VBox>
+
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Modo de ventana" styleClass="settings-field-label"/>
+                                                </VBox>
+                                                <ComboBox fx:id="cmbLaunchMode" styleClass="settings-combo" prefWidth="240"/>
                                             </HBox>
-                                            <Slider fx:id="sliderRam" min="2" max="16" value="6" majorTickUnit="2" minorTickCount="1" blockIncrement="1"/>
 
-                                            <Label text="Modo de ventana" styleClass="settings-field-label"/>
-                                            <ComboBox fx:id="cmbLaunchMode" styleClass="settings-combo" maxWidth="Infinity"/>
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Resolución" styleClass="settings-field-label"/>
+                                                    <Label text="Solo en modo ventana, por ejemplo 1280x720." styleClass="settings-hint"/>
+                                                </VBox>
+                                                <TextField fx:id="txtResolution"
+                                                           styleClass="settings-field"
+                                                           prefWidth="240"
+                                                           promptText="1280x720"/>
+                                            </HBox>
 
-                                            <Label text="Resolucion (solo ventana)" styleClass="settings-field-label"/>
-                                            <TextField fx:id="txtResolution"
-                                                       styleClass="settings-field"
-                                                       promptText="1280x720"/>
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Ventana sin bordes" styleClass="settings-field-label"/>
+                                                </VBox>
+                                                <CheckBox fx:id="chkBorderlessWindow" styleClass="settings-check"/>
+                                            </HBox>
 
-                                            <CheckBox fx:id="chkBorderlessWindow"
-                                                      text="Usar ventana sin bordes (borderless)"
-                                                      styleClass="settings-check"/>
-                                            <CheckBox fx:id="chkCloseLauncherOnStart"
-                                                      text="Cerrar launcher al iniciar el juego"
-                                                      styleClass="settings-check"/>
-                                            <CheckBox fx:id="chkDiscordRpc"
-                                                      text="Activar Discord RPC"
-                                                      styleClass="settings-check"/>
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Cerrar el launcher al jugar" styleClass="settings-field-label"/>
+                                                </VBox>
+                                                <CheckBox fx:id="chkCloseLauncherOnStart" styleClass="settings-check"/>
+                                            </HBox>
+
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Discord Rich Presence" styleClass="settings-field-label"/>
+                                                </VBox>
+                                                <CheckBox fx:id="chkDiscordRpc" styleClass="settings-check"/>
+                                            </HBox>
+
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Sonido de notificaciones" styleClass="settings-field-label"/>
+                                                </VBox>
+                                                <CheckBox fx:id="chkNotificationSound" styleClass="settings-check"/>
+                                            </HBox>
+
+                                            <HBox styleClass="setting-row, setting-row-last" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Optimizar launcher" styleClass="settings-field-label"/>
+                                                    <Label text="Quita animaciones, desenfoques y sombras. Recomendado en PCs o laptops modestas."
+                                                           styleClass="settings-hint" wrapText="true"/>
+                                                </VBox>
+                                                <CheckBox fx:id="chkPerformanceMode" styleClass="settings-check"/>
+                                            </HBox>
                                         </VBox>
 
                                         <VBox fx:id="paneSettingsModpacks" styleClass="settings-section" spacing="12">
                                             <Label text="Plantilla de modpack" styleClass="settings-section-title"/>
-                                            <Label text="Normal: todo activado. Optimizada: desactiva secciones pesadas y aplica parche de opciones."
-                                                   styleClass="settings-hint"
+                                            <Label text="Normal: todo activado. Optimizada: desactiva lo más pesado y aplica un parche de opciones (una sola vez por jugador). Custom: tú eliges."
+                                                   styleClass="settings-section-subtitle"
                                                    wrapText="true"/>
                                             <ComboBox fx:id="cmbModpack" styleClass="settings-combo" maxWidth="Infinity"/>
 
-                                            <HBox spacing="10" alignment="CENTER_LEFT">
-                                                <TextField fx:id="txtModSearch"
-                                                           promptText="Buscar mod por nombre..."
-                                                           styleClass="settings-field"
-                                                           HBox.hgrow="ALWAYS"/>
-                                            </HBox>
+                                            <TextField fx:id="txtModSearch"
+                                                       promptText="Buscar mod por nombre..."
+                                                       styleClass="settings-field, search-field"
+                                                       maxWidth="Infinity"/>
 
-                                            <VBox spacing="8" alignment="CENTER_LEFT">
-                                                <Label text="Secciones" styleClass="mod-filter-label"/>
+                                            <HBox spacing="10" alignment="CENTER_LEFT">
                                                 <FlowPane fx:id="modsSectionFilterChips"
                                                           hgap="8"
                                                           vgap="8"
                                                           prefWrapLength="720"
+                                                          HBox.hgrow="ALWAYS"
                                                           maxWidth="Infinity"/>
-                                            </VBox>
+                                            </HBox>
 
                                             <HBox spacing="10" alignment="CENTER_LEFT">
                                                 <Label fx:id="lblModsCount" text="0 elementos" styleClass="settings-hint"/>
                                                 <Region HBox.hgrow="ALWAYS"/>
-                                                <Button fx:id="btnModsPrevPage" text="Anterior" styleClass="mod-page-btn" onAction="#onModsPrevPage"/>
-                                                <Label fx:id="lblModsPage" text="Pagina 1/1" styleClass="settings-value"/>
-                                                <Button fx:id="btnModsNextPage" text="Siguiente" styleClass="mod-page-btn" onAction="#onModsNextPage"/>
+                                                <Button fx:id="btnModsPrevPage" text="‹" styleClass="mod-page-btn" onAction="#onModsPrevPage"/>
+                                                <Label fx:id="lblModsPage" text="Página 1/1" styleClass="settings-value"/>
+                                                <Button fx:id="btnModsNextPage" text="›" styleClass="mod-page-btn" onAction="#onModsNextPage"/>
                                             </HBox>
 
-                                            <VBox fx:id="modsListContainer" styleClass="mods-list" spacing="8"/>
+                                            <VBox fx:id="modsListContainer" styleClass="mods-list" spacing="6"/>
                                         </VBox>
 
                                         <VBox fx:id="paneSettingsResourcepacks"
-                                              styleClass="settings-section resourcepacks-section"
+                                              styleClass="settings-section, resourcepacks-section"
                                               spacing="14"
                                               visible="false"
                                               managed="false">
-                                            <Label text="Editor de paquetes de recursos" styleClass="settings-section-title"/>
-                                            <Label text="Mueve a Activos los packs que quieras usar en el juego. Aqui solo aparecen los aprobados por Semencraft."
-                                                   styleClass="settings-hint"
+                                            <Label text="Packs de textura" styleClass="settings-section-title"/>
+                                            <Label text="Mueve a Activos los packs que quieras usar. El orden importa: el de arriba tiene prioridad. Solo aparecen los aprobados por Semencraft."
+                                                   styleClass="settings-section-subtitle"
                                                    wrapText="true"/>
 
                                             <HBox styleClass="resourcepack-editor" spacing="14">
                                                 <VBox styleClass="resourcepack-column" spacing="10" HBox.hgrow="ALWAYS">
                                                     <Label text="Disponibles" styleClass="resourcepack-column-title"/>
-                                                    <VBox fx:id="resourcepacksAvailableContainer" styleClass="resourcepack-list" spacing="10"/>
+                                                    <VBox fx:id="resourcepacksAvailableContainer" styleClass="resourcepack-list" spacing="8"/>
                                                 </VBox>
                                                 <VBox styleClass="resourcepack-column" spacing="10" HBox.hgrow="ALWAYS">
                                                     <Label text="Activos" styleClass="resourcepack-column-title"/>
-                                                    <VBox fx:id="resourcepacksSelectedContainer" styleClass="resourcepack-list" spacing="10"/>
+                                                    <VBox fx:id="resourcepacksSelectedContainer" styleClass="resourcepack-list" spacing="8"/>
                                                 </VBox>
                                             </HBox>
                                         </VBox>
 
-                                        <VBox fx:id="paneSettingsSystem" styleClass="settings-section" spacing="8">
+                                        <VBox fx:id="paneSettingsSystem" styleClass="settings-section" spacing="0">
                                             <Label text="Estado del sistema" styleClass="settings-section-title"/>
-                                            <Label fx:id="lblSystemJavaDetails"
-                                                   text="Java: verificando version requerida..."
-                                                   styleClass="settings-hint"
-                                                   wrapText="true"/>
-                                            <Label text="Para Minecraft 1.21.1 se recomienda Java 21 o superior."
-                                                   styleClass="settings-hint"
-                                                   wrapText="true"/>
+
+                                            <HBox styleClass="setting-row" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label text="Java" styleClass="settings-field-label"/>
+                                                    <Label fx:id="lblSystemJavaDetails"
+                                                           text="Java: verificando versión requerida..."
+                                                           styleClass="settings-hint"
+                                                           wrapText="true"/>
+                                                    <Label text="Minecraft 1.21.1 necesita Java 21 o superior (el launcher lo descarga solo si falta)."
+                                                           styleClass="settings-hint"
+                                                           wrapText="true"/>
+                                                </VBox>
+                                            </HBox>
+
+                                            <HBox styleClass="setting-row, setting-row-last" spacing="16" alignment="CENTER_LEFT">
+                                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                                    <Label fx:id="lblLauncherVersion" text="Semencraft Launcher" styleClass="settings-field-label"/>
+                                                    <Label fx:id="lblUpdateStatus" text="Busca nuevas versiones en GitHub." styleClass="settings-hint" wrapText="true"/>
+                                                </VBox>
+                                                <Button fx:id="btnCheckUpdates" text="Buscar actualizaciones" styleClass="secondary-btn" onAction="#onCheckUpdates"/>
+                                            </HBox>
                                         </VBox>
                                     </VBox>
                                 </content>
@@ -294,22 +309,23 @@
                                   spacing="10"
                                   alignment="CENTER_LEFT"
                                   StackPane.alignment="BOTTOM_CENTER">
-                                <padding><Insets top="12" right="24" bottom="12" left="24"/></padding>
-                                <Button fx:id="btnSaveSettings"
-                                        text="Guardar cambios"
-                                        styleClass="settings-save-btn"
-                                        onAction="#onSaveSettings"/>
+                                <Label text="Cambios sin guardar" styleClass="settings-action-hint"/>
+                                <Label fx:id="lblSettingsStatus" text="" styleClass="settings-status"/>
+                                <Region HBox.hgrow="ALWAYS"/>
                                 <Button fx:id="btnDiscardSettings"
                                         text="Descartar"
                                         styleClass="settings-discard-btn"
                                         onAction="#onDiscardSettings"/>
-                                <Label fx:id="lblSettingsStatus" text="" styleClass="settings-status"/>
+                                <Button fx:id="btnSaveSettings"
+                                        text="Guardar cambios"
+                                        styleClass="settings-save-btn"
+                                        onAction="#onSaveSettings"/>
                             </HBox>
                         </StackPane>
                     </VBox>
 
                     <VBox fx:id="skinView"
-                          styleClass="menu-dark-bg"
+                          styleClass="page-view"
                           visible="false"
                           managed="false"
                           maxWidth="Infinity"
@@ -324,14 +340,14 @@
                                     maxHeight="Infinity">
                             <content>
                                 <VBox fx:id="skinRoot" styleClass="skin-root" spacing="18">
-                                    <padding><Insets top="22" right="18" bottom="40" left="18"/></padding>
+                                    <padding><Insets top="26" right="28" bottom="26" left="28"/></padding>
                                 </VBox>
                             </content>
                         </ScrollPane>
                     </VBox>
 
                     <VBox fx:id="teamView"
-                          styleClass="menu-dark-bg"
+                          styleClass="page-view"
                           visible="false"
                           managed="false"
                           maxWidth="Infinity"
@@ -345,10 +361,20 @@
                                     maxHeight="Infinity">
                             <content>
                                 <VBox fx:id="teamRoot" styleClass="team-root" spacing="18">
-                                    <padding><Insets top="22" right="18" bottom="40" left="18"/></padding>
+                                    <padding><Insets top="26" right="28" bottom="40" left="28"/></padding>
                                 </VBox>
                             </content>
                         </ScrollPane>
+                    </VBox>
+
+                        </StackPane>
+
+                        <HBox styleClass="bottom-bar" alignment="CENTER_LEFT" spacing="16">
+                            <Button fx:id="btnModsList" text="LISTA DE MODS" styleClass="text-btn, text-btn-small" onAction="#onModsList"/>
+                            <Region HBox.hgrow="ALWAYS" minWidth="0" prefHeight="62" minHeight="62"/>
+                            <Button fx:id="btnDiscord" styleClass="text-btn, text-btn-small" onAction="#onDiscord"/>
+                            <Label fx:id="lblVersion" text="v1.0  -  Fabric 1.21.1" styleClass="version-label"/>
+                        </HBox>
                     </VBox>
 
                     <StackPane fx:id="loadingOverlay" visible="false" opacity="0">
@@ -359,47 +385,47 @@
                               spacing="18"
                               pickOnBounds="false"
                               styleClass="loading-card">
-                            <ImageView fx:id="imgLoadTitle" fitHeight="120" preserveRatio="true" smooth="true"/>
-                            <Label fx:id="lblLoadStatus" text="Iniciando..." styleClass="load-status-text"/>
+                            <ImageView fx:id="imgLoadTitle" fitHeight="110" preserveRatio="true" smooth="true"/>
+                            <Label fx:id="lblLoadStatus" text="Iniciando..." styleClass="load-status-text" wrapText="true"/>
 
-                            <VBox alignment="CENTER" spacing="14">
-                                <VBox spacing="6">
+                            <VBox alignment="CENTER" spacing="16">
+                                <VBox spacing="8">
                                     <HBox alignment="CENTER_LEFT">
                                         <Label text="PROGRESO TOTAL" styleClass="progress-head-label"/>
                                         <Region HBox.hgrow="ALWAYS"/>
                                         <Label fx:id="lblTotalPercent" text="0%" styleClass="progress-percent-label"/>
                                     </HBox>
-                                    <StackPane fx:id="progressTrackTotal" styleClass="progress-track" prefHeight="12" prefWidth="390">
+                                    <StackPane fx:id="progressTrackTotal" styleClass="progress-track" prefHeight="8" prefWidth="390">
                                         <Region fx:id="progressFillTotal"
-                                                styleClass="progress-fill progress-fill-total"
-                                                prefHeight="12"
+                                                styleClass="progress-fill, progress-fill-total"
+                                                prefHeight="8"
                                                 prefWidth="0"
                                                 StackPane.alignment="CENTER_LEFT"/>
-                                    <Region fx:id="progressIndTotal"
-                                            styleClass="progress-indicator progress-indicator-total"
-                                            prefWidth="74"
-                                            prefHeight="8"
-                                            StackPane.alignment="CENTER_LEFT"/>
+                                        <Region fx:id="progressIndTotal"
+                                                styleClass="progress-indicator"
+                                                prefWidth="74"
+                                                prefHeight="6"
+                                                StackPane.alignment="CENTER_LEFT"/>
                                     </StackPane>
                                 </VBox>
 
-                                <VBox spacing="6">
+                                <VBox spacing="8">
                                     <HBox alignment="CENTER_LEFT">
                                         <Label text="DESCARGA ACTUAL" styleClass="progress-head-label"/>
                                         <Region HBox.hgrow="ALWAYS"/>
                                         <Label fx:id="lblDownloadPercent" text="0%" styleClass="progress-percent-label"/>
                                     </HBox>
-                                    <StackPane fx:id="progressTrackDownload" styleClass="progress-track" prefHeight="12" prefWidth="390">
+                                    <StackPane fx:id="progressTrackDownload" styleClass="progress-track" prefHeight="8" prefWidth="390">
                                         <Region fx:id="progressFillDownload"
-                                                styleClass="progress-fill progress-fill-download"
-                                                prefHeight="12"
+                                                styleClass="progress-fill, progress-fill-download"
+                                                prefHeight="8"
                                                 prefWidth="0"
                                                 StackPane.alignment="CENTER_LEFT"/>
-                                    <Region fx:id="progressIndDownload"
-                                            styleClass="progress-indicator progress-indicator-download"
-                                            prefWidth="74"
-                                            prefHeight="8"
-                                            StackPane.alignment="CENTER_LEFT"/>
+                                        <Region fx:id="progressIndDownload"
+                                                styleClass="progress-indicator"
+                                                prefWidth="74"
+                                                prefHeight="6"
+                                                StackPane.alignment="CENTER_LEFT"/>
                                     </StackPane>
                                 </VBox>
 
@@ -410,15 +436,15 @@
                         </VBox>
                     </StackPane>
 
-                                <fx:include fx:id="login" source="login.fxml"/>
+                    <fx:include fx:id="login" source="login.fxml"/>
                 </StackPane>
             </HBox>
 
             <AnchorPane pickOnBounds="false" maxWidth="Infinity" maxHeight="Infinity">
                 <StackPane fx:id="notificationsAnchor"
                            pickOnBounds="false"
-                           AnchorPane.topAnchor="14.0"
-                           AnchorPane.rightAnchor="18.0">
+                           AnchorPane.topAnchor="16.0"
+                           AnchorPane.rightAnchor="20.0">
                     <Button fx:id="btnNotifications"
                             styleClass="notification-bell-btn"
                             onAction="#onToggleNotifications"/>
@@ -428,10 +454,8 @@
                                managed="false"
                                mouseTransparent="true"
                                StackPane.alignment="TOP_RIGHT"
-                               scaleX="0.34"
-                               scaleY="0.34"
-                               translateX="11"
-                               translateY="-11">
+                               translateX="5"
+                               translateY="-5">
                         <Label fx:id="lblNotificationCount"
                                text="0"
                                styleClass="notification-badge-label"/>
@@ -442,8 +466,8 @@
                            visible="false"
                            managed="false"
                            pickOnBounds="false"
-                           AnchorPane.topAnchor="50.0"
-                           AnchorPane.rightAnchor="18.0">
+                           AnchorPane.topAnchor="62.0"
+                           AnchorPane.rightAnchor="16.0">
                     <StackPane prefWidth="334"
                                prefHeight="422"
                                maxWidth="334"
@@ -457,14 +481,16 @@
                         <BorderPane prefWidth="334"
                                     prefHeight="422"
                                     maxWidth="334"
-                                    maxHeight="422"
-                                    styleClass="notifications-surface">
+                                    maxHeight="422">
                             <top>
-                                <HBox alignment="CENTER_RIGHT">
-                                    <padding><Insets top="26" right="22" bottom="0" left="24"/></padding>
+                                <HBox alignment="CENTER_LEFT" spacing="8">
+                                    <padding><Insets top="24" right="22" bottom="0" left="34"/></padding>
+                                    <Label text="Notificaciones" styleClass="book-title"/>
+                                    <Label fx:id="lblNotificationsHeaderCount" text="0" styleClass="book-count" visible="false" managed="false"/>
+                                    <Region HBox.hgrow="ALWAYS"/>
                                     <Button fx:id="btnCloseNotifications"
                                             text="X"
-                                            styleClass="notifications-close-btn"
+                                            styleClass="book-close-btn"
                                             onAction="#onCloseNotifications"/>
                                 </HBox>
                             </top>
@@ -473,32 +499,37 @@
                                             styleClass="notifications-scroll"
                                             fitToWidth="true"
                                             hbarPolicy="NEVER"
-                                            vbarPolicy="AS_NEEDED"
-                                            prefViewportWidth="252"
-                                            prefViewportHeight="300">
-                                    <BorderPane.margin><Insets top="12" right="20" bottom="24" left="28"/></BorderPane.margin>
+                                            vbarPolicy="AS_NEEDED">
+                                    <BorderPane.margin><Insets top="10" right="20" bottom="26" left="30"/></BorderPane.margin>
                                     <content>
                                         <VBox fx:id="notificationsList"
                                               styleClass="notifications-list"
-                                              spacing="10"
-                                              maxWidth="Infinity">
-                                            <padding><Insets top="4" right="6" bottom="8" left="6"/></padding>
-                                        </VBox>
+                                              spacing="8"
+                                              maxWidth="Infinity"/>
                                     </content>
                                 </ScrollPane>
                             </center>
                         </BorderPane>
                     </StackPane>
                 </StackPane>
+
+                <VBox fx:id="toastLayer"
+                      pickOnBounds="false"
+                      spacing="10"
+                      alignment="TOP_RIGHT"
+                      AnchorPane.bottomAnchor="78.0"
+                      AnchorPane.rightAnchor="22.0"/>
             </AnchorPane>
+
+            <StackPane fx:id="modalLayer" styleClass="modal-layer" visible="false" managed="false" maxWidth="Infinity" maxHeight="Infinity"/>
 
             <StackPane fx:id="startupOverlay" styleClass="startup-overlay" maxWidth="Infinity" maxHeight="Infinity" visible="false" managed="false">
                 <VBox alignment="CENTER" spacing="12" maxWidth="Infinity" maxHeight="Infinity">
                     <Label fx:id="lblStartupStatus" text="Cargando Launcher" styleClass="startup-title"/>
-                    <StackPane fx:id="startupProgressTrack" styleClass="startup-progress-track" prefWidth="260" prefHeight="10">
+                    <StackPane fx:id="startupProgressTrack" styleClass="startup-progress-track" prefWidth="260" prefHeight="6" maxWidth="-Infinity">
                         <Region fx:id="startupProgressFill"
                                 styleClass="startup-progress-fill"
-                                prefHeight="10"
+                                prefHeight="6"
                                 prefWidth="0"
                                 StackPane.alignment="CENTER_LEFT"/>
                     </StackPane>
