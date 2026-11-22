@@ -1487,7 +1487,6 @@
 .login-error-lbl {
     -fx-text-fill: #ff9aa5;
     -fx-font-size: 0.86em;
-    -fx-opacity: 0;
 }
 
 .login-note-lbl {

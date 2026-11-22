@@ -1,68 +1,29 @@
 package com.semencraft.semencraftlauncherjavafx;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
+/**
+ * Datos publicos de Supabase. El launcher solo lleva la clave publica: lo que necesita permisos
+ * pasa por la funcion sc-api (SemencraftApi) o por las reglas RLS con la sesion del jugador.
+ * Nunca hay que volver a meter aqui una clave secreta: el jar se puede descomprimir.
+ */
 final class SupabaseConfig {
 
     static final String URL_ENV = "SEMENCRAFT_SUPABASE_URL";
     static final String ANON_KEY_ENV = "SEMENCRAFT_SUPABASE_ANON_KEY";
-    static final String SERVICE_ROLE_KEY_ENV = "SEMENCRAFT_SUPABASE_SERVICE_ROLE_KEY";
 
-    private static final String PRIVATE_RESOURCE_PATH = "private/database-private.json";
-    private static final String LOCAL_PRIVATE_FILE = "database-private.json";
+    private static final String DEFAULT_URL = "https://zhvwcnawpcmkpgeqmnjb.supabase.co";
+    private static final String DEFAULT_PUBLISHABLE_KEY = "sb_publishable_ToA4lpw4PSx2z27FD_cR4Q_nSN1D-Jl";
 
     private SupabaseConfig() {
     }
 
     static RuntimeConfig resolve() {
-        JsonObject diskConfig = readPrivateJsonFromDisk();
         return new RuntimeConfig(
-                firstNonBlank(System.getenv(URL_ENV), stringValue(diskConfig, "supabaseUrl")),
-                firstNonBlank(System.getenv(ANON_KEY_ENV), stringValue(diskConfig, "supabaseAnonKey")),
-                firstNonBlank(System.getenv(SERVICE_ROLE_KEY_ENV), stringValue(diskConfig, "supabaseServiceRoleKey"))
+                firstNonBlank(System.getenv(URL_ENV), DEFAULT_URL),
+                firstNonBlank(System.getenv(ANON_KEY_ENV), DEFAULT_PUBLISHABLE_KEY)
         );
     }
 
-    private static JsonObject readPrivateJsonFromDisk() {
-        try {
-            Path runtimeConfig = LauncherStorage.launcherDirectory().resolve(LOCAL_PRIVATE_FILE);
-            if (Files.exists(runtimeConfig)) {
-                return JsonParser.parseString(Files.readString(runtimeConfig, StandardCharsets.UTF_8)).getAsJsonObject();
-            }
-        } catch (Exception ignored) {
-        }
-
-        try (InputStream in = SupabaseConfig.class.getResourceAsStream(PRIVATE_RESOURCE_PATH)) {
-            if (in != null) {
-                return JsonParser.parseString(new String(in.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
-            }
-        } catch (Exception ignored) {
-        }
-
-        return new JsonObject();
-    }
-
-    private static String stringValue(JsonObject root, String key) {
-        if (root == null || key == null || !root.has(key) || root.get(key).isJsonNull()) {
-            return "";
-        }
-        try {
-            return root.get(key).getAsString();
-        } catch (Exception ignored) {
-            return "";
-        }
-    }
-
     private static String firstNonBlank(String... values) {
-        if (values == null) {
-            return "";
-        }
         for (String value : values) {
             if (value != null && !value.isBlank()) {
                 return value.trim();
@@ -71,17 +32,13 @@ final class SupabaseConfig {
         return "";
     }
 
-    record RuntimeConfig(String url, String anonKey, String serviceRoleKey) {
+    record RuntimeConfig(String url, String anonKey) {
         boolean hasUrl() {
             return url != null && !url.isBlank();
         }
 
         boolean hasAnonKey() {
             return anonKey != null && !anonKey.isBlank();
-        }
-
-        boolean hasServiceRoleKey() {
-            return serviceRoleKey != null && !serviceRoleKey.isBlank();
         }
     }
 }

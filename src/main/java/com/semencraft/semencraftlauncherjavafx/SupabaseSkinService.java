@@ -26,7 +26,7 @@ final class SupabaseSkinService {
     private final SupabaseConfig.RuntimeConfig config = SupabaseConfig.resolve();
     private final SupabaseRestClient supabase = new SupabaseRestClient(
             config.url(),
-            config.hasServiceRoleKey() ? config.serviceRoleKey() : config.anonKey()
+            config.anonKey()
     );
 
     record LoadResult(boolean success, String message, SkinContext context) {

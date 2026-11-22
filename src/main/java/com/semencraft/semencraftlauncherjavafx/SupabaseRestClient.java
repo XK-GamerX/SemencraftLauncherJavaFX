@@ -18,7 +18,10 @@ import java.util.Map;
 
 final class SupabaseRestClient {
 
-    private static final String USER_AGENT = "SemencraftLauncher/1.0";
+    private static final String USER_AGENT = "SemencraftLauncher/1.3";
+    /** Columnas de app_users que la clave publica puede leer (la contrasena y los datos privados no). */
+    private static final String APP_USERS_COLUMNS =
+            "id,minecraft_username,minecraft_username_normalized,discord_username,team_id,presence_status,last_seen_at,is_registered,created_at";
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(20))
@@ -38,7 +41,7 @@ final class SupabaseRestClient {
 
     JsonArray select(String table, Map<String, String> filters, String order, Integer limit) throws Exception {
         Map<String, String> query = new LinkedHashMap<>();
-        query.put("select", "*");
+        query.put("select", columnsFor(table));
         if (filters != null) {
             query.putAll(filters);
         }
@@ -58,7 +61,7 @@ final class SupabaseRestClient {
     }
 
     JsonObject insert(String table, JsonObject payload) throws Exception {
-        JsonElement body = requestJson("POST", "/rest/v1/" + table, Map.of(), payload, preferRepresentationHeader(true), "application/json");
+        JsonElement body = requestJson("POST", "/rest/v1/" + table, Map.of("select", columnsFor(table)), payload, preferRepresentationHeader(true), "application/json");
         if (body != null && body.isJsonArray() && !body.getAsJsonArray().isEmpty() && body.getAsJsonArray().get(0).isJsonObject()) {
             return body.getAsJsonArray().get(0).getAsJsonObject();
         }
@@ -67,6 +70,7 @@ final class SupabaseRestClient {
 
     JsonObject upsert(String table, JsonObject payload, String onConflict) throws Exception {
         Map<String, String> query = new LinkedHashMap<>();
+        query.put("select", columnsFor(table));
         if (onConflict != null && !onConflict.isBlank()) {
             query.put("on_conflict", onConflict);
         }
@@ -85,7 +89,12 @@ final class SupabaseRestClient {
     }
 
     JsonObject update(String table, JsonObject payload, Map<String, String> filters) throws Exception {
-        JsonElement body = requestJson("PATCH", "/rest/v1/" + table, filters, payload, preferRepresentationHeader(true), "application/json");
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("select", columnsFor(table));
+        if (filters != null) {
+            query.putAll(filters);
+        }
+        JsonElement body = requestJson("PATCH", "/rest/v1/" + table, query, payload, preferRepresentationHeader(true), "application/json");
         if (body != null && body.isJsonArray() && !body.getAsJsonArray().isEmpty() && body.getAsJsonArray().get(0).isJsonObject()) {
             return body.getAsJsonArray().get(0).getAsJsonObject();
         }
@@ -100,18 +109,17 @@ final class SupabaseRestClient {
         return requestJson("POST", "/rest/v1/rpc/" + functionName, Map.of(), payload, preferRepresentationHeader(false), "application/json");
     }
 
+    /** Las subidas pasan por sc-api: comprueba que la skin o el icono sean del jugador de la sesion. */
     String uploadPublicObject(String bucket, String objectPath, byte[] content, String contentType) throws Exception {
-        Map<String, String> query = new LinkedHashMap<>();
-        query.put("upsert", "true");
-        requestBytes(
-                "POST",
-                "/storage/v1/object/" + bucket + "/" + encodePathSegment(objectPath),
-                query,
-                content,
-                "return=minimal",
-                contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType,
-                Map.of("x-upsert", "true")
-        );
+        JsonObject body = new JsonObject();
+        body.addProperty("bucket", bucket);
+        body.addProperty("path", objectPath);
+        body.addProperty("contentType", contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType);
+        body.addProperty("content", java.util.Base64.getEncoder().encodeToString(content));
+        SemencraftApi.Result result = SemencraftApi.call("uploadStorage", body);
+        if (!result.ok()) {
+            throw new IOException(result.error());
+        }
         return objectPath;
     }
 
@@ -201,7 +209,6 @@ final class SupabaseRestClient {
     ) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(buildUri(path, query))
                 .header("apikey", apiKey)
-                .header("Authorization", "Bearer " + apiKey)
                 .header("User-Agent", USER_AGENT)
                 .timeout(Duration.ofSeconds(30));
         if (prefer != null && !prefer.isBlank()) {
@@ -209,6 +216,10 @@ final class SupabaseRestClient {
         }
         if (contentType != null && !contentType.isBlank()) {
             builder.header("Content-Type", contentType);
+        }
+        // Las reglas RLS reconocen al jugador por su sesion.
+        if (SemencraftApi.hasSession()) {
+            builder.header("x-sc-session", SemencraftApi.sessionToken());
         }
         if (extraHeaders != null) {
             for (Map.Entry<String, String> entry : extraHeaders.entrySet()) {
@@ -257,6 +268,10 @@ final class SupabaseRestClient {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         return trimmed;
+    }
+
+    private static String columnsFor(String table) {
+        return "app_users".equals(table) ? APP_USERS_COLUMNS : "*";
     }
 
     private static String preferRepresentationHeader(boolean representation) {

@@ -73,12 +73,14 @@ final class LauncherStorage {
         }
     }
 
-    static void saveCredentials(String username) {
+    /** Guarda el usuario y el token de su sesion (cifrados) para entrar sin escribir la contrasena. */
+    static void saveCredentials(String username, String sessionToken) {
         ensureDirectoriesOnly();
         if (username == null || username.isBlank()) {
             return;
         }
-        String payload = "{\"username\":\"" + jsonEscape(username.trim()) + "\",\"savedAt\":" + System.currentTimeMillis() + "}";
+        String payload = "{\"username\":\"" + jsonEscape(username.trim()) + "\",\"session\":\""
+                + jsonEscape(sessionToken == null ? "" : sessionToken.trim()) + "\",\"savedAt\":" + System.currentTimeMillis() + "}";
         try {
             String encrypted = encrypt(payload);
             Files.writeString(
@@ -97,6 +99,29 @@ final class LauncherStorage {
         try {
             Files.deleteIfExists(credentialsPath());
         } catch (Exception ignored) {
+        }
+    }
+
+    record SavedSession(String username, String token) {
+    }
+
+    /** Sesion guardada, o null. Las versiones anteriores a la 1.3 solo guardaban el usuario: sin token hay que volver a entrar. */
+    static SavedSession loadSavedSession() {
+        ensureDirectoriesOnly();
+        try {
+            Path path = credentialsPath();
+            if (!Files.exists(path)) {
+                return null;
+            }
+            String decrypted = decrypt(Files.readString(path, StandardCharsets.UTF_8).trim());
+            if (decrypted == null || decrypted.isBlank()) {
+                return null;
+            }
+            String user = extractString(decrypted, "username", "");
+            String token = extractString(decrypted, "session", "");
+            return user.isBlank() || token.isBlank() ? null : new SavedSession(user, token);
+        } catch (Exception ignored) {
+            return null;
         }
     }
 

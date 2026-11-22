@@ -652,6 +652,44 @@ async def notify_admin(message: str) -> None:
         return
 
 
+WEB_ADMIN_URL = "https://xk-gamerx.github.io/semencraft/#/admin"
+
+
+def load_unnotified_payments() -> List[dict]:
+    return supabase.select(
+        "payments",
+        {
+            "select": "id,amount_soles,app_users!payments_user_id_fkey(minecraft_username,is_test)",
+            "admin_notified_at": "is.null",
+        },
+        order="created_at.asc",
+        limit=20,
+    )
+
+
+async def notify_new_payments() -> None:
+    """Avisa en el canal de admins de cada comprobante de Yape nuevo enviado desde la web."""
+    try:
+        rows = await asyncio.to_thread(load_unnotified_payments)
+        for row in rows:
+            user = row.get("app_users") or {}
+            name = str(user.get("minecraft_username") or "alguien")
+            amount = row.get("amount_soles")
+            amount_text = f"{float(amount):g}" if amount is not None else "?"
+            if not user.get("is_test"):
+                await notify_admin(
+                    f"[SemmieBOT][pagos] Nuevo comprobante de **{name}** por **S/{amount_text}**. Revisalo en {WEB_ADMIN_URL}"
+                )
+            await asyncio.to_thread(
+                supabase.update,
+                "payments",
+                {"admin_notified_at": datetime.now(timezone.utc).isoformat()},
+                {"id": f"eq.{row.get('id')}"},
+            )
+    except Exception as exc:
+        print(f"[payments][error] {exc}")
+
+
 async def notify_admin_error(scope: str, exc: Exception) -> None:
     message = str(exc).strip() or exc.__class__.__name__
     cooldown_seconds = max(
@@ -706,7 +744,7 @@ async def process_registration_verification_jobs() -> None:
         if status != "pending":
             continue
 
-        discord_user_id = str(payload.get("discord_user_id", "")).strip()
+        discord_user_id = str(payload.get("discord_user_id") or "").strip()
         verification_code = str(payload.get("verification_code", "")).strip()
         minecraft_username = str(payload.get("minecraft_username", "")).strip()
         if not discord_user_id.isdigit() or not verification_code or not minecraft_username:
@@ -1008,7 +1046,7 @@ async def sync_discord_directory() -> Dict[int, discord.Member]:
         "users": sorted(
             [
                 {
-                    "id": str(row.get("discord_user_id", "")).strip(),
+                    "id": str(row.get("discord_user_id") or "").strip(),
                     "username": str(row.get("discord_username", "")).strip(),
                     "globalName": str(row.get("discord_global_name", "") or "").strip(),
                     "displayName": str(row.get("discord_display_name", "") or "").strip(),
@@ -1055,7 +1093,7 @@ async def sync_discord_directory() -> Dict[int, discord.Member]:
         if str(user.get("id", "")).strip()
     }
     for row in existing_rows:
-        discord_user_id = str(row.get("discord_user_id", "")).strip()
+        discord_user_id = str(row.get("discord_user_id") or "").strip()
         guild_id = str(row.get("guild_id", "")).strip()
         if guild_id in guild_ids and discord_user_id and discord_user_id not in current_ids:
             await asyncio.to_thread(
@@ -1096,7 +1134,7 @@ def load_registered_accounts() -> Dict[str, RegisteredAccount]:
         normalized_username = normalize_minecraft_username(
             row.get("minecraft_username_normalized") or minecraft_username
         )
-        discord_user_id = str(row.get("discord_user_id", "")).strip()
+        discord_user_id = str(row.get("discord_user_id") or "").strip()
         if not normalized_username or not discord_user_id:
             continue
 
@@ -1135,7 +1173,7 @@ def load_team_documents() -> List[TeamDocument]:
             TeamMemberRecord(
                 minecraft_username=minecraft_username or normalized_username,
                 minecraft_username_normalized=normalized_username,
-                discord_user_id=str((user or {}).get("discord_user_id", "")).strip(),
+                discord_user_id=str((user or {}).get("discord_user_id") or "").strip(),
                 role=str(row.get("member_role", "member")).strip().lower() or "member",
             )
         )
@@ -1163,7 +1201,7 @@ def load_team_documents() -> List[TeamDocument]:
                 representative_color=normalize_hex_color(row.get("representative_color")),
                 icon_path=str(row.get("icon_path", "")).strip(),
                 founder_minecraft_username=str((founder_user or {}).get("minecraft_username", "")).strip(),
-                founder_discord_user_id=str((founder_user or {}).get("discord_user_id", "")).strip(),
+                founder_discord_user_id=str((founder_user or {}).get("discord_user_id") or "").strip(),
                 archived=archived,
                 members=members,
             )
@@ -1850,6 +1888,7 @@ async def run_action_sync_cycle(reason: str) -> None:
 
     async with sync_lock:
         await process_registration_verification_jobs()
+        await notify_new_payments()
         members = collect_cached_members()
         if not members:
             return

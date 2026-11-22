@@ -56,6 +56,12 @@
                             <CheckBox fx:id="chkRememberMe" text="Recordarme" selected="true" styleClass="login-check"/>
 
                             <Label fx:id="lblLoginError" text="" styleClass="login-error-lbl" maxWidth="Infinity" wrapText="true"/>
+                            <Hyperlink fx:id="linkOpenWeb"
+                                       text="Abrir la web para enviar mi pago"
+                                       styleClass="login-switch-link"
+                                       visible="false"
+                                       managed="false"
+                                       onAction="#onOpenWeb"/>
 
                             <Button fx:id="btnLogin"
                                     text="ENTRAR"

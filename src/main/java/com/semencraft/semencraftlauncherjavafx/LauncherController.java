@@ -881,7 +881,7 @@ public class LauncherController {
         refreshCurrentUserAvatar();
         refreshUserPresenceUi();
         if (loginController == null || loginController.isRememberMe()) {
-            LauncherStorage.saveCredentials(username);
+            LauncherStorage.saveCredentials(username, SemencraftApi.sessionToken());
         } else {
             LauncherStorage.forgetCredentials();
         }
@@ -896,10 +896,25 @@ public class LauncherController {
     }
 
     private void bootstrapSavedSession() {
-        String storedUser = LauncherStorage.loadSavedUsername();
-        if (storedUser == null || storedUser.isBlank()) {
+        LauncherStorage.SavedSession saved = LauncherStorage.loadSavedSession();
+        if (saved == null) {
+            // Hasta la 1.2 solo se guardaba el nombre, sin comprobar que la cuenta existiera.
+            String legacyUser = LauncherStorage.loadSavedUsername();
+            if (legacyUser != null && loginController != null) {
+                loginController.prefillLegacyUser(legacyUser);
+            }
             return;
         }
+        String storedUser = saved.username();
+        SemencraftApi.setSessionToken(saved.token());
+        // Se entra al instante y se confirma en segundo plano que la sesion siga valida
+        // (cuenta baneada, acceso retirado o sesion cerrada por un admin).
+        CompletableFuture.supplyAsync(SemencraftApi::validateLauncherSession)
+                .thenAccept(result -> Platform.runLater(() -> {
+                    if (!result.ok() && result.sessionRejected()) {
+                        forceLogout(result.error());
+                    }
+                }));
         loggedIn = true;
         lblUsername.setText(storedUser);
         refreshCurrentUserAvatar();
@@ -2790,6 +2805,17 @@ public class LauncherController {
         showLoadingScreen(user);
 
         CompletableFuture.runAsync(() -> {
+            // Antes de jugar se confirma que la cuenta siga activa. Si el servidor de cuentas
+            // no responde se deja jugar igual: el problema seria de conexion, no de la cuenta.
+            SemencraftApi.Result session = SemencraftApi.validateLauncherSession();
+            if (!session.ok() && session.sessionRejected()) {
+                Platform.runLater(() -> {
+                    setPlayBusy(false);
+                    dismissLoadingOverlay();
+                    forceLogout(session.error());
+                });
+                return;
+            }
             try {
                 FabricMinecraftService service = new FabricMinecraftService();
                 FabricMinecraftService.LaunchResult result = service.installAndLaunch(
@@ -4934,6 +4960,21 @@ public class LauncherController {
         settingsStatusFade.play();
     }
 
+    /** Cierra la sesion del launcher y vuelve a la pantalla de login con el motivo. */
+    private void forceLogout(String message) {
+        SemencraftApi.setSessionToken("");
+        LauncherStorage.forgetCredentials();
+        loggedIn = false;
+        lblUsername.setText("--");
+        if (loginController != null) {
+            loginController.resetAndAnimate();
+        }
+        setLoginOverlayVisible(true);
+        if (message != null && !message.isBlank()) {
+            showInfo(message);
+        }
+    }
+
     private void setLoginOverlayVisible(boolean visible) {
         if (login == null) {
             return;
@@ -5582,7 +5623,7 @@ public class LauncherController {
         }
         boolean canInstall = info.hasInstaller() && LauncherUpdater.canInstallInPlace();
 
-        Label title = new Label("Versión " + shortVersion(info.version()) + " disponible");
+        Label title = new Label("Version " + shortVersion(info.version()) + " disponible"); // Minecraft Ten no tiene tildes
         title.getStyleClass().add("modal-title");
         title.setWrapText(true);
 
@@ -5624,7 +5665,7 @@ public class LauncherController {
         progressBox.setManaged(false);
         card.getChildren().add(progressBox);
 
-        Button later = new Button("Más tarde");
+        Button later = new Button("Mas tarde"); // Minecraft Ten no tiene tildes
         later.getStyleClass().add("ghost-btn");
         Button now = new Button(canInstall ? "Actualizar ahora" : "Ir a la descarga");
         now.getStyleClass().add("primary-btn");

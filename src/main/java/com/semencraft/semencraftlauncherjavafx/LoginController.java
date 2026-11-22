@@ -60,6 +60,7 @@ public class LoginController {
     @FXML private Label lblLoginError;
     @FXML private Button btnLogin;
     @FXML private Hyperlink linkShowRegister;
+    @FXML private Hyperlink linkOpenWeb;
 
     @FXML private TextField txtRegisterMinecraftUser;
     @FXML private PasswordField txtRegisterPassword;
@@ -352,7 +353,14 @@ public class LoginController {
                 .thenAccept(result -> Platform.runLater(() -> {
                     setBusy(false);
                     if (!result.success()) {
-                        showError(lblLoginError, result.message());
+                        if ("access_pending".equals(result.code())) {
+                            // Cuenta sin pagar: el aviso se queda y se ofrece la web para enviar el comprobante.
+                            showWebNotice(result.message());
+                        } else if ("banned".equals(result.code()) || "access_revoked".equals(result.code())) {
+                            setErrorText(lblLoginError, result.message());
+                        } else {
+                            showError(lblLoginError, result.message());
+                        }
                         shake(txtLoginPassword);
                         return;
                     }
@@ -360,6 +368,36 @@ public class LoginController {
                         onSuccess.accept(result.account().minecraftUsername());
                     }
                 }));
+    }
+
+    /** Sesion guardada por una version anterior: se deja el nombre escrito y se explica por que hay que volver a entrar. */
+    public void prefillLegacyUser(String username) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        switchMode(AuthMode.LOGIN, false);
+        txtLoginUsername.setText(username.trim());
+        setErrorText(lblLoginError, "Actualizamos el sistema de cuentas: escribe tu contrasena una vez para seguir. "
+                + "Si no la recuerdas o tu cuenta no aparece, pide ayuda a un admin en Discord.");
+        Platform.runLater(() -> txtLoginPassword.requestFocus());
+    }
+
+    @FXML
+    private void onOpenWeb() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(java.net.URI.create(SemencraftApi.WEB_URL));
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void showWebNotice(String message) {
+        setErrorText(lblLoginError, message);
+        if (linkOpenWeb != null) {
+            linkOpenWeb.setVisible(true);
+            linkOpenWeb.setManaged(true);
+        }
     }
 
     @FXML
@@ -375,8 +413,8 @@ public class LoginController {
             shake(txtRegisterMinecraftUser);
             return;
         }
-        if (password == null || password.length() < 4) {
-            showError(lblRegisterError, "La contrasena debe tener al menos 4 caracteres.");
+        if (password == null || password.length() < 6) {
+            showError(lblRegisterError, "La contrasena debe tener al menos 6 caracteres.");
             shake(txtRegisterPassword);
             return;
         }
@@ -453,10 +491,13 @@ public class LoginController {
                         shake(txtVerificationCode);
                         return;
                     }
-                    if (onSuccess != null && result.account() != null) {
-                        pendingVerification = null;
-                        onSuccess.accept(result.account().minecraftUsername());
-                    }
+                    // La cuenta existe pero no tiene acceso hasta que se pague en la web.
+                    pendingVerification = null;
+                    String createdUser = txtRegisterMinecraftUser.getText().trim();
+                    clearFields();
+                    switchMode(AuthMode.LOGIN, true);
+                    txtLoginUsername.setText(createdUser);
+                    showWebNotice(result.message());
                 }));
     }
 
@@ -510,6 +551,10 @@ public class LoginController {
     }
 
     private void clearMessages() {
+        if (linkOpenWeb != null) {
+            linkOpenWeb.setVisible(false);
+            linkOpenWeb.setManaged(false);
+        }
         setErrorText(lblLoginError, "");
         setErrorText(lblRegisterError, "");
         setErrorText(lblVerificationError, "");
