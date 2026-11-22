@@ -1,0 +1,4 @@
+{
+  "schemaVersion": 1,
+  "note": "Esta carpeta guardara una solicitud de rol por usuario. El bot marcara cada solicitud como completed cuando asigne el rol Registrado."
+}

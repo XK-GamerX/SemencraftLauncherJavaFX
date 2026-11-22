@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization" Codepage="1252">
+  <!-- Respaldo en ingles: Overridable para que gane la cultura es-es. -->
+  <String Id="message.install.dir.exist" Overridable="yes">The folder [INSTALLDIR] already exist. Would you like to install to that folder anyway?</String>
+  <String Id="MainFeatureTitle" Overridable="yes">Main Feature</String>
+  <String Id="DowngradeErrorMessage" Overridable="yes">A higher version of [ProductName] is already installed. Downgrades disabled. Setup will now exit.</String>
+  <String Id="DisallowUpgradeErrorMessage" Overridable="yes">A lower version of [ProductName] is already installed. Upgrades disabled. Setup will now exit.</String>
+
+  <String Id="ShortcutPromptDlg_Title" Overridable="yes">[ProductName] Setup</String>
+  <String Id="ShortcutPromptDlgTitle" Overridable="yes">{\WixUI_Font_Title}Shortcuts</String>
+  <String Id="ShortcutPromptDlgBannerBitmap" Overridable="yes">WixUI_Bmp_Banner</String>
+  <String Id="ShortcutPromptDlgDescription" Overridable="yes">Select shortcuts to create.</String>
+  <String Id="ShortcutPromptDlgDesktopShortcutControlLabel" Overridable="yes">Create desktop shortcut(s)</String>
+  <String Id="ShortcutPromptDlgStartMenuShortcutControlLabel" Overridable="yes">Create start menu shortcut(s)</String>
+  <String Id="InstallDirNotEmptyDlg_Title" Overridable="yes">[ProductName] Setup</String>
+  <String Id="ContextMenuCommandLabel" Overridable="yes">Open with [ProductName]</String>
+
+  <!-- Semencraft: previous version step -->
+  <String Id="SemencraftPrevDlg_Title" Overridable="yes">[ProductName] Setup</String>
+  <String Id="SemencraftPrevDlgTitle" Overridable="yes">{\WixUI_Font_Title}Previous version detected</String>
+  <String Id="SemencraftPrevDlgDescription" Overridable="yes">Semencraft Launcher is already installed on this computer.</String>
+  <String Id="SemencraftPrevDlgVersion" Overridable="yes">Installed version: [SEMENCRAFT_PREVIOUS_VERSION]   ->   New version: [ProductVersion]</String>
+  <String Id="SemencraftPrevDlgVersionUnknown" Overridable="yes">A previous installation was found   ->   New version: [ProductVersion]</String>
+  <String Id="SemencraftPrevDlgBody" Overridable="yes">To avoid conflicts, setup will completely uninstall the previous version and then install the new one in the same folder. You don't need to uninstall it manually.</String>
+  <String Id="SemencraftPrevDlgData" Overridable="yes">Your worlds, settings, skins, screenshots and mods (%APPDATA%\.semencraft) are kept.</String>
+  <String Id="SemencraftPrevDlgSteps" Overridable="yes">Click "Uninstall and install" to continue, or Cancel to leave everything as it is.</String>
+  <String Id="SemencraftPrevDlgUninstallButton" Overridable="yes">&amp;Uninstall and install</String>
+  <String Id="SemencraftLaunchAfterInstall" Overridable="yes">Launch Semencraft Launcher</String>
+  <String Id="SemencraftExitText" Overridable="yes">Your worlds, skins and settings are kept. You will find the launcher on the desktop and in the Start menu.</String>
+</WixLocalization>

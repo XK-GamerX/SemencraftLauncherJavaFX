@@ -41,3 +41,14 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Launcher private config ###
+src/main/resources/com/semencraft/semencraftlauncherjavafx/private/
+database-repo/bot/bot-config.json
+
+### Copias y estado local (no subir: pueden traer claves o datos de jugadores) ###
+src.zip
+database-repo/bot/bot-state.json
+database-repo/bot/.discord-bot.lock
+__pycache__/
+*.pyc

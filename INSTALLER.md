@@ -54,11 +54,49 @@ All artifacts are written under:
   - Override at build time: `-PinstallerVersion=1.2.3`
 - The installer uses a fixed `--win-upgrade-uuid`, so newer installers upgrade existing installs instead of creating parallel apps.
 
+## Instalador: version anterior detectada
+
+El MSI usa un `main.wxs` propio (`installer/wix/`, pasado a jpackage con `--resource-dir`):
+
+- Cada build genera un ProductCode nuevo, asi que una build nueva siempre reemplaza a la instalada
+  (aunque tenga el mismo numero de version).
+- Si ya hay un Semencraft Launcher instalado (version mas vieja, igual o mas nueva), aparece el paso
+  "Version anterior detectada": el instalador la desinstala por completo y despues instala la nueva
+  en la misma carpeta. `%APPDATA%\.semencraft` (mundos, ajustes, mods) no se toca.
+- Recuerda la carpeta de instalacion (`HKCU\Software\Semencraft\Semencraft Launcher`) para las
+  siguientes actualizaciones.
+- Textos en espanol (`MsiInstallerStrings_es.wxl`; el `_en.wxl` es solo respaldo) y casilla
+  "Iniciar Semencraft Launcher" al terminar.
+
+## Actualizaciones del launcher (GitHub Releases)
+
+Al abrir, el launcher consulta `releases/latest` de `XK-GamerX/SemencraftLauncherJavaFX` y, si el tag es
+mayor que su version (`build.gradle.kts` -> `launcher-version.properties`), pregunta si actualizar ahora o
+mas tarde. "Mas tarde" deja el aviso en la campana de notificaciones.
+
+Para publicar una actualizacion:
+
+1. Subir `version` en `build.gradle.kts` (por ejemplo `1.2.1`).
+2. `.\scripts\build-msi.ps1 -Version 1.2.1`
+3. Crear la release en GitHub con tag `v1.2.1` y adjuntar el `.msi` generado.
+
+"Actualizar ahora" descarga el MSI (verifica tamano y el SHA-256 que publica GitHub), lo ejecuta con
+`msiexec /passive SEMENCRAFT_RELAUNCH=1` y cierra el launcher; el MSI desinstala la version anterior y
+vuelve a abrir el launcher al terminar. Las instalaciones anteriores a 1.2.0 no tienen este actualizador:
+hay que instalar 1.2.0 a mano una vez.
+
 ## Windows requirement for MSI
 
 `jpackage` needs **WiX Toolset** in `PATH` to produce `msi`.
 
 You must install WiX Toolset v3 (which provides `candle.exe` and `light.exe`) for MSI packaging.
+
+## Java 21 for end users
+
+- The MSI/app-image generated with `jpackage` should already bundle the Java 21 runtime used by the launcher.
+- For a normal end user install, this is the safest path because it avoids extra prerequisite errors.
+- If you run the launcher manually outside the packaged MSI/app-image and Java 21 is missing, the launcher now offers the Oracle MSI fallback:
+  - `https://download.oracle.com/java/21/latest/jdk-21_windows-x64_bin.msi`
 
 If WiX is not installed yet, you can still ship:
 
@@ -113,3 +151,11 @@ PNG fallbacks are also supported:
 ## Credits
 
 - Launcher and installer credits: **Khel Palacios**
+
+## Imagenes y retoques del instalador
+
+- `installer/wix/dialog.bmp` (493x312, bienvenida y final) y `installer/wix/banner.bmp` (493x58, cabecera de cada paso)
+  se generan con `java design/installer/InstallerArt.java` desde la raiz del proyecto, a partir de `bg.png`, el logo y el icono.
+  `main.wxs` las toma de la carpeta indicada en la variable de entorno `SEMENCRAFT_WIX_RES` (la tarea Gradle la define sola).
+- Despues de jpackage, `installer/patch-msi.ps1` oculta los botones "Atras" y "Cancelar" desactivados de las pantallas finales.
+  Si generas el MSI llamando a jpackage a mano, ejecuta ese script sobre el `.msi` al final.
