@@ -764,11 +764,13 @@ async def process_registration_verification_jobs() -> None:
 
         try:
             user = client.get_user(int(discord_user_id)) or await client.fetch_user(int(discord_user_id))
+            is_link = str(payload.get("purpose", "")).strip().lower() == "link"
             embed = discord.Embed(
                 title="🔐 Verificacion de Semencraft",
                 description=(
-                    f"Tu codigo para completar el registro de **{minecraft_username}** es:\n\n"
-                    f"## `{verification_code}`"
+                    (f"Tu codigo para vincular tu Discord a la cuenta **{minecraft_username}** es:\n\n" if is_link
+                     else f"Tu codigo para completar el registro de **{minecraft_username}** es:\n\n")
+                    + f"## `{verification_code}`"
                 ),
                 colour=discord.Colour.from_rgb(104, 156, 255),
                 timestamp=discord.utils.utcnow(),
@@ -780,7 +782,8 @@ async def process_registration_verification_jobs() -> None:
             )
             embed.add_field(
                 name="📌 Que hacer ahora",
-                value="Vuelve al launcher, coloca el codigo y termina tu registro.",
+                value=("Vuelve a la pagina de Semencraft y coloca el codigo." if is_link
+                       else "Vuelve al launcher, coloca el codigo y termina tu registro."),
                 inline=False,
             )
             embed.set_footer(text="Semencraft Launcher")

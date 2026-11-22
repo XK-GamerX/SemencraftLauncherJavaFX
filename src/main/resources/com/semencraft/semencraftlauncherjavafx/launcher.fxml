@@ -260,7 +260,7 @@
                                               visible="false"
                                               managed="false">
                                             <Label text="Packs de textura" styleClass="settings-section-title"/>
-                                            <Label text="Mueve a Activos los packs que quieras usar. El orden importa: el de arriba tiene prioridad. Solo aparecen los aprobados por Semencraft."
+                                            <Label text="Arrastra a Activos los packs que quieras usar y ordénalos arrastrándolos. El de arriba tiene prioridad. Solo aparecen los aprobados por Semencraft."
                                                    styleClass="settings-section-subtitle"
                                                    wrapText="true"/>
 

@@ -23,6 +23,8 @@ final class SemencraftApi {
             .connectTimeout(Duration.ofSeconds(20))
             .build();
     private static volatile String sessionToken = "";
+    /** Acceso de la cuenta al launcher (granted, pending o revoked) segun la ultima respuesta del servidor. */
+    private static volatile String accessStatus = "granted";
 
     private SemencraftApi() {
     }
@@ -35,8 +37,7 @@ final class SemencraftApi {
 
         /** La sesion ya no sirve: hay que volver a iniciar sesion. */
         boolean sessionRejected() {
-            return code != null && (code.equals("no_session") || code.equals("banned") || code.equals("expired")
-                    || code.startsWith("access_"));
+            return code != null && (code.equals("no_session") || code.equals("banned") || code.equals("expired"));
         }
     }
 
@@ -46,6 +47,24 @@ final class SemencraftApi {
 
     static void setSessionToken(String token) {
         sessionToken = token == null ? "" : token.trim();
+    }
+
+    static String accessStatus() {
+        return accessStatus;
+    }
+
+    static boolean hasLauncherAccess() {
+        return "granted".equals(accessStatus);
+    }
+
+    /** Guarda el acceso que trae el perfil de una respuesta (login o me). */
+    static void rememberAccess(JsonObject body) {
+        if (body != null && body.has("profile") && body.get("profile").isJsonObject()) {
+            String access = string(body.getAsJsonObject("profile"), "access");
+            if (!access.isBlank()) {
+                accessStatus = access;
+            }
+        }
     }
 
     static boolean hasSession() {
@@ -83,11 +102,16 @@ final class SemencraftApi {
         }
     }
 
-    /** Perfil de la sesion guardada; con client=launcher falla si la cuenta no tiene acceso o esta baneada. */
+    /** Perfil de la sesion guardada. Falla si la cuenta esta baneada o la sesion se cerro; el acceso queda en accessStatus. */
     static Result validateLauncherSession() {
         JsonObject body = new JsonObject();
         body.addProperty("client", "launcher");
-        return call("me", body);
+        body.addProperty("limited", true); // sabe limitarse si la cuenta no tiene acceso
+        Result result = call("me", body);
+        if (result.ok()) {
+            rememberAccess(result.body());
+        }
+        return result;
     }
 
     static Result logout() {

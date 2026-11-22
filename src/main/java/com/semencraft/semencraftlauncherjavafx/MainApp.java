@@ -74,6 +74,7 @@ public class MainApp extends Application {
             Scene scene = new Scene(root, width, height);
             scene.setFill(Color.web("#0b0a12"));
             applyStyles(scene);
+            SmoothScroll.install(scene);
 
             stage.setTitle("Semencraft Launcher");
             stage.setScene(scene);

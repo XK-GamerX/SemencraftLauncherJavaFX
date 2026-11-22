@@ -45,11 +45,13 @@ final class SupabaseDatabaseService {
         body.addProperty("username", username.trim());
         body.addProperty("password", password);
         body.addProperty("client", "launcher");
+        body.addProperty("limited", true); // sin acceso se entra igual, solo para cambiar la skin
         SemencraftApi.Result result = SemencraftApi.call("login", body);
         if (!result.ok()) {
             return new AuthResult(false, result.error(), null, result.code());
         }
         SemencraftApi.setSessionToken(SemencraftApi.string(result.body(), "token"));
+        SemencraftApi.rememberAccess(result.body());
         JsonObject profile = result.body().has("profile") ? result.body().getAsJsonObject("profile") : new JsonObject();
         return new AuthResult(true, "Bienvenido de nuevo.", new RemoteAccount(
                 SemencraftApi.string(profile, "username"),

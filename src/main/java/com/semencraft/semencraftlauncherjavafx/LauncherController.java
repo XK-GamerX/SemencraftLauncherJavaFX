@@ -48,7 +48,13 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.DataFormat;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.TransferMode;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
@@ -66,7 +72,6 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -81,6 +86,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
@@ -254,6 +260,8 @@ public class LauncherController {
     private final Map<String, Image> entryIconCache = new HashMap<>();
     private final Map<String, Image> minecraftSkinImageCache = new ConcurrentHashMap<>();
     private final Set<String> minecraftSkinLoadsInFlight = ConcurrentHashMap.newKeySet();
+    /** Cabezas ya dibujadas con la skin por defecto que esperan la skin real (solo hilo de JavaFX). */
+    private final Map<String, List<WeakReference<ImageView>>> headViewsAwaitingSkin = new HashMap<>();
     private Image modEntryIcon;
     private Image resourcepackEntryIcon;
     private Image teamNavIcon;
@@ -310,7 +318,6 @@ public class LauncherController {
     private int unreadLocalNotifications;
     private int lastAnnouncedUnreadCount = -1;
     private boolean updateCheckInFlight;
-    private boolean updateInstallInProgress;
     private long lastProcessScanMs;
     private boolean lastProcessScanResult;
     /** Alto de la tarjeta de skin sin contar el modelo 3D (cabecera, botones, margenes). */
@@ -886,8 +893,12 @@ public class LauncherController {
             LauncherStorage.forgetCredentials();
         }
         refreshLauncherRuntimeStateUi();
-        refreshTeamContextAsync();
+        applyLauncherAccess(SemencraftApi.accessStatus(), true);
+        if (launcherAccess) {
+            refreshTeamContextAsync();
+        }
         refreshSkinContextAsync();
+        startAccessWatch();
         FadeTransition transition = fade(login, 0.0, 360);
         transition.setOnFinished(event -> {
             setLoginOverlayVisible(false);
@@ -913,8 +924,11 @@ public class LauncherController {
                 .thenAccept(result -> Platform.runLater(() -> {
                     if (!result.ok() && result.sessionRejected()) {
                         forceLogout(result.error());
+                    } else if (result.ok()) {
+                        applyLauncherAccess(SemencraftApi.accessStatus(), true);
                     }
                 }));
+        startAccessWatch();
         loggedIn = true;
         lblUsername.setText(storedUser);
         refreshCurrentUserAvatar();
@@ -1256,17 +1270,17 @@ public class LauncherController {
             return;
         }
         if (lblStatus != null) {
-            lblStatus.setText("Listo para jugar");
+            lblStatus.setText(launcherAccess ? "Listo para jugar" : "Sin acceso todavía: solo puedes cambiar tu skin");
         }
         pushDiscordPresence(DiscordRpcService.LauncherRpcState.IDLE, "En el menu principal");
     }
 
     private void applyPlayAvailability() {
-        boolean blocked = launchInProgress || minecraftRunning;
+        boolean blocked = launchInProgress || minecraftRunning || !launcherAccess;
         if (btnPlay != null) {
             btnPlay.setDisable(blocked);
             btnPlay.setCursor(blocked ? Cursor.DEFAULT : Cursor.HAND);
-            btnPlay.setText(minecraftRunning ? "EN JUEGO" : (launchInProgress ? "INICIANDO..." : "JUGAR"));
+            btnPlay.setText(minecraftRunning ? "EN JUEGO" : (launchInProgress ? "INICIANDO..." : (launcherAccess ? "JUGAR" : "SIN ACCESO")));
         }
     }
 
@@ -1911,7 +1925,7 @@ public class LauncherController {
     }
 
     private void loadModpackCatalogAsync() {
-        setModListMessage("Cargando modpack...");
+        setSkeletonList(modsListContainer, 4);
         updateStartupProgress(0.56, "Cargando modpacks desde GitHub...");
         modpackManager.setSyncProgressListener((status, fraction) -> Platform.runLater(() -> {
             if (!startupCatalogReady) {
@@ -2060,10 +2074,11 @@ public class LauncherController {
         }
         resourcepacksAvailableContainer.getChildren().clear();
         resourcepacksSelectedContainer.getChildren().clear();
+        installResourcepackDropTargets();
 
         if (modpackCatalog == null) {
-            setResourcepackListMessage(resourcepacksAvailableContainer, "Cargando resourcepacks...");
-            setResourcepackListMessage(resourcepacksSelectedContainer, "Aun no hay packs seleccionados.");
+            setSkeletonList(resourcepacksAvailableContainer, 3);
+            setSkeletonList(resourcepacksSelectedContainer, 1);
             return;
         }
 
@@ -2109,6 +2124,11 @@ public class LauncherController {
         HBox row = new HBox(12);
         row.getStyleClass().add("resourcepack-item-row");
         row.setAlignment(Pos.CENTER_LEFT);
+        row.getProperties().put(RESOURCEPACK_ROW_KEY, entry.id());
+
+        Label grip = new Label("⋮⋮");
+        grip.getStyleClass().add("resourcepack-grip");
+        grip.setMinWidth(Region.USE_PREF_SIZE);
 
         Image icon = resolveEntryIcon(entry);
         ImageView iconView = makeIcon(icon, 46);
@@ -2127,7 +2147,7 @@ public class LauncherController {
         if (!selected) {
             Label description = new Label(
                     entry.description() == null || entry.description().isBlank()
-                            ? "Sin descripcion."
+                            ? "Sin descripción."
                             : entry.description()
             );
             description.getStyleClass().add("resourcepack-item-description");
@@ -2174,9 +2194,188 @@ public class LauncherController {
             actions.getChildren().add(add);
         }
 
-        row.getChildren().addAll(iconView, textCol, actions);
+        row.getChildren().addAll(grip, iconView, textCol, actions);
         attachSmoothHover(row, 1.01, -1);
+        makeResourcepackRowDraggable(row, entry.id());
         return row;
+    }
+
+    // ---- Arrastrar packs: de Disponibles a Activos (y al reves) y ordenar los Activos ----
+
+    private static final String RESOURCEPACK_ROW_KEY = "sc-resourcepack-id";
+    private static final DataFormat RESOURCEPACK_DRAG_FORMAT = new DataFormat("application/x-semencraft-resourcepack");
+    /** Espacio que se abre entre los packs para mostrar donde caera el que arrastras. */
+    private static final double RESOURCEPACK_DROP_GAP = 22.0;
+    private String draggingResourcepackId;
+    private boolean resourcepackDropTargetsInstalled;
+
+    private void makeResourcepackRowDraggable(HBox row, String entryId) {
+        row.setCursor(Cursor.OPEN_HAND);
+        row.setOnDragDetected(event -> {
+            if (isInsideButton(event.getPickResult().getIntersectedNode(), row)) {
+                return;
+            }
+            Dragboard dragboard = row.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.put(RESOURCEPACK_DRAG_FORMAT, entryId);
+            dragboard.setContent(content);
+            SnapshotParameters params = new SnapshotParameters();
+            params.setFill(Color.TRANSPARENT);
+            double scale = row.getScaleX();
+            row.setScaleX(1.0);
+            row.setScaleY(1.0);
+            dragboard.setDragView(row.snapshot(params, null), event.getX(), event.getY());
+            row.setScaleX(scale);
+            row.setScaleY(scale);
+            draggingResourcepackId = entryId;
+            row.setOpacity(0.35);
+            event.consume();
+        });
+        row.setOnDragDone(event -> {
+            draggingResourcepackId = null;
+            row.setOpacity(1.0);
+            clearResourcepackDropPreview();
+        });
+    }
+
+    private static boolean isInsideButton(Node node, Node stopAt) {
+        for (Node current = node; current != null && current != stopAt; current = current.getParent()) {
+            if (current instanceof ButtonBase) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Las dos columnas aceptan packs soltados. Se instala una sola vez. */
+    private void installResourcepackDropTargets() {
+        if (resourcepackDropTargetsInstalled || resourcepacksAvailableContainer == null || resourcepacksSelectedContainer == null) {
+            return;
+        }
+        resourcepackDropTargetsInstalled = true;
+        Node selectedColumn = resourcepacksSelectedContainer.getParent() != null ? resourcepacksSelectedContainer.getParent() : resourcepacksSelectedContainer;
+        Node availableColumn = resourcepacksAvailableContainer.getParent() != null ? resourcepacksAvailableContainer.getParent() : resourcepacksAvailableContainer;
+
+        selectedColumn.setOnDragOver(event -> {
+            if (draggingResourcepackId == null || !event.getDragboard().hasContent(RESOURCEPACK_DRAG_FORMAT)) {
+                return;
+            }
+            event.acceptTransferModes(TransferMode.MOVE);
+            showResourcepackDropPreview(resourcepackDropIndex(event.getSceneY()));
+            setColumnDropHighlight(selectedColumn, true);
+            event.consume();
+        });
+        selectedColumn.setOnDragExited(event -> {
+            clearResourcepackDropPreview();
+            setColumnDropHighlight(selectedColumn, false);
+        });
+        selectedColumn.setOnDragDropped(event -> {
+            String id = event.getDragboard().getContent(RESOURCEPACK_DRAG_FORMAT) instanceof String s ? s : null;
+            boolean done = false;
+            if (id != null) {
+                int index = resourcepackDropIndex(event.getSceneY());
+                List<String> next = new ArrayList<>(normalizeResourcepackSelection(workingResourcepackSelection));
+                next.remove(id);
+                next.add(Math.max(0, Math.min(index, next.size())), id);
+                workingResourcepackSelection = next;
+                done = true;
+            }
+            event.setDropCompleted(done);
+            event.consume();
+            setColumnDropHighlight(selectedColumn, false);
+            if (done) {
+                Platform.runLater(() -> {
+                    refreshResourcepackEntriesView();
+                    onSettingsEdited();
+                });
+            }
+        });
+
+        availableColumn.setOnDragOver(event -> {
+            if (draggingResourcepackId == null || !workingResourcepackSelection.contains(draggingResourcepackId)) {
+                return;
+            }
+            event.acceptTransferModes(TransferMode.MOVE);
+            setColumnDropHighlight(availableColumn, true);
+            event.consume();
+        });
+        availableColumn.setOnDragExited(event -> setColumnDropHighlight(availableColumn, false));
+        availableColumn.setOnDragDropped(event -> {
+            String id = event.getDragboard().getContent(RESOURCEPACK_DRAG_FORMAT) instanceof String s ? s : null;
+            event.setDropCompleted(id != null);
+            event.consume();
+            setColumnDropHighlight(availableColumn, false);
+            if (id != null) {
+                Platform.runLater(() -> removeResourcepackFromSelection(id));
+            }
+        });
+    }
+
+    private static void setColumnDropHighlight(Node column, boolean on) {
+        if (on) {
+            if (!column.getStyleClass().contains("resourcepack-column-drop")) {
+                column.getStyleClass().add("resourcepack-column-drop");
+            }
+        } else {
+            column.getStyleClass().remove("resourcepack-column-drop");
+        }
+    }
+
+    /** Filas de la lista de Activos, sin contar la que se esta arrastrando. */
+    private List<Node> resourcepackSelectedRows() {
+        List<Node> rows = new ArrayList<>();
+        for (Node child : resourcepacksSelectedContainer.getChildren()) {
+            Object id = child.getProperties().get(RESOURCEPACK_ROW_KEY);
+            if (id != null && !id.equals(draggingResourcepackId)) {
+                rows.add(child);
+            }
+        }
+        return rows;
+    }
+
+    /** Posicion en la lista de Activos donde caeria el pack segun la altura del puntero. */
+    private int resourcepackDropIndex(double sceneY) {
+        double localY = resourcepacksSelectedContainer.sceneToLocal(0, sceneY).getY();
+        List<Node> rows = resourcepackSelectedRows();
+        for (int i = 0; i < rows.size(); i++) {
+            Node row = rows.get(i);
+            // Se usa la posicion de layout (sin el desplazamiento de la vista previa) para que no tiemble.
+            if (localY < row.getLayoutY() + row.getLayoutBounds().getHeight() / 2.0) {
+                return i;
+            }
+        }
+        return rows.size();
+    }
+
+    private void showResourcepackDropPreview(int index) {
+        List<Node> rows = resourcepackSelectedRows();
+        for (int i = 0; i < rows.size(); i++) {
+            animateTranslateY(rows.get(i), i >= index ? RESOURCEPACK_DROP_GAP : 0.0);
+        }
+    }
+
+    private void clearResourcepackDropPreview() {
+        if (resourcepacksSelectedContainer == null) {
+            return;
+        }
+        for (Node child : resourcepacksSelectedContainer.getChildren()) {
+            animateTranslateY(child, 0.0);
+        }
+    }
+
+    private static void animateTranslateY(Node node, double target) {
+        // Se llama muchas veces por segundo mientras arrastras: solo se anima si cambia el destino.
+        if (node.getProperties().get("sc-drop-target") instanceof Double current && current == target) {
+            return;
+        }
+        node.getProperties().put("sc-drop-target", target);
+        if (node.getProperties().get("sc-drop-anim") instanceof Timeline running) {
+            running.stop();
+        }
+        Timeline timeline = new Timeline(new KeyFrame(Duration.millis(120),
+                new KeyValue(node.translateYProperty(), target, Interpolator.EASE_OUT)));
+        node.getProperties().put("sc-drop-anim", timeline);
+        timeline.play();
     }
 
     private void addResourcepackToSelection(String entryId) {
@@ -2249,7 +2448,7 @@ public class LauncherController {
         filteredModEntries.clear();
 
         if (modpackCatalog == null) {
-            setModListMessage("Cargando modpack...");
+            setSkeletonList(modsListContainer, 4);
             updateModPaginationState();
             return;
         }
@@ -2786,6 +2985,10 @@ public class LauncherController {
             showInfo("Configura tu nombre de usuario primero.");
             return;
         }
+        if (!launcherAccess) {
+            showAccessNotice();
+            return;
+        }
 
         // Ya no bloqueamos el Play si falta Java: installAndLaunch() se encarga de
         // descargar un runtime portable (JRE 21 de Eclipse Temurin) automaticamente
@@ -2816,6 +3019,14 @@ public class LauncherController {
                 });
                 return;
             }
+            if (session.ok() && !SemencraftApi.hasLauncherAccess()) {
+                Platform.runLater(() -> {
+                    setPlayBusy(false);
+                    dismissLoadingOverlay();
+                    applyLauncherAccess(SemencraftApi.accessStatus(), true);
+                });
+                return;
+            }
             try {
                 FabricMinecraftService service = new FabricMinecraftService();
                 FabricMinecraftService.LaunchResult result = service.installAndLaunch(
@@ -2833,6 +3044,10 @@ public class LauncherController {
     }
 
     private void showView(ViewMode mode, boolean animate) {
+        if (!launcherAccess && (mode == ViewMode.TEAM || mode == ViewMode.SETTINGS)) {
+            showAccessNotice();
+            return;
+        }
         if (mode != ViewMode.SETTINGS && !allowSettingsViewExit()) {
             return;
         }
@@ -3168,6 +3383,10 @@ public class LauncherController {
             return;
         }
 
+        if (currentSkinContext == null && skinContextErrorMessage.isBlank()) {
+            skinRoot.getChildren().add(buildSkeletonCard(false, 2));
+            return;
+        }
         if (currentSkinContext == null) {
             VBox info = createInfoCard(
                     skinContextErrorMessage.isBlank() ? "Cargando skin" : "No se pudo cargar tu skin",
@@ -3483,10 +3702,7 @@ public class LauncherController {
         }
 
         if (currentTeamContext == null) {
-            teamRoot.getChildren().add(createInfoCard(
-                    "Cargando equipo",
-                    "Estamos consultando tu informacion en la base de datos."
-            ));
+            teamRoot.getChildren().add(buildSkeletonCard(true, 3));
             return;
         }
 
@@ -3721,6 +3937,100 @@ public class LauncherController {
         pendingTeamDraftError = "";
         teamPanelMode = TeamPanelMode.EDIT;
         renderTeamView();
+    }
+
+    // ---- Esqueletos de carga (bloques grises que laten mientras llegan los datos) ----
+
+    /** Un solo latido compartido: todos los esqueletos se iluminan a la vez. */
+    private final javafx.beans.property.DoubleProperty skeletonPulse = new javafx.beans.property.SimpleDoubleProperty(1.0);
+    private Timeline skeletonPulseTimeline;
+
+    private Region skeletonBlock(double width, double height, boolean round) {
+        if (skeletonPulseTimeline == null) {
+            skeletonPulseTimeline = new Timeline(
+                    new KeyFrame(Duration.ZERO, new KeyValue(skeletonPulse, 1.0, Interpolator.EASE_BOTH)),
+                    new KeyFrame(Duration.millis(750), new KeyValue(skeletonPulse, 0.45, Interpolator.EASE_BOTH)),
+                    new KeyFrame(Duration.millis(1500), new KeyValue(skeletonPulse, 1.0, Interpolator.EASE_BOTH)));
+            skeletonPulseTimeline.setCycleCount(Animation.INDEFINITE);
+            skeletonPulseTimeline.play();
+        }
+        Region block = new Region();
+        block.getStyleClass().add(round ? "skeleton-circle" : "skeleton");
+        block.setMinHeight(height);
+        block.setPrefHeight(height);
+        block.setMaxHeight(height);
+        if (width > 0) {
+            block.setMinWidth(width);
+            block.setPrefWidth(width);
+            block.setMaxWidth(width);
+        } else {
+            block.setMaxWidth(Double.MAX_VALUE);
+        }
+        block.opacityProperty().bind(skeletonPulse);
+        return block;
+    }
+
+    /** Filas de jugador (cabeza + nombre) mientras carga una lista. */
+    private List<Node> buildSkeletonPlayerRows(int count) {
+        List<Node> rows = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Region name = skeletonBlock(0, 14, false);
+            name.setMaxWidth(120 + (i * 37) % 90);
+            Region sub = skeletonBlock(0, 10, false);
+            sub.setMaxWidth(70 + (i * 23) % 50);
+            VBox text = new VBox(8, name, sub);
+            text.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(text, Priority.ALWAYS);
+            HBox row = new HBox(12, skeletonBlock(44, 44, false), text, skeletonBlock(78, 32, false));
+            row.getStyleClass().add("team-member-row");
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setMouseTransparent(true);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** Tarjeta esqueleto con la forma general de una seccion (titulo, texto y filas). */
+    private VBox buildSkeletonCard(boolean withHeaderIcon, int rows) {
+        VBox card = createSectionCard();
+        Region title = skeletonBlock(0, 20, false);
+        title.setMaxWidth(220);
+        Region line = skeletonBlock(0, 12, false);
+        line.setMaxWidth(340);
+        VBox heading = new VBox(10, title, line);
+        heading.setAlignment(Pos.CENTER_LEFT);
+        if (withHeaderIcon) {
+            HBox header = new HBox(16, skeletonBlock(72, 72, true), heading);
+            header.setAlignment(Pos.CENTER_LEFT);
+            card.getChildren().add(header);
+        } else {
+            card.getChildren().add(heading);
+        }
+        card.getChildren().addAll(buildSkeletonPlayerRows(rows));
+        card.setMouseTransparent(true);
+        return card;
+    }
+
+    /** Lista esqueleto para mods y packs (icono + dos lineas). */
+    private void setSkeletonList(VBox container, int count) {
+        if (container == null) {
+            return;
+        }
+        container.getChildren().clear();
+        for (int i = 0; i < count; i++) {
+            Region name = skeletonBlock(0, 14, false);
+            name.setMaxWidth(150 + (i * 41) % 80);
+            Region desc = skeletonBlock(0, 10, false);
+            desc.setMaxWidth(230 + (i * 29) % 70);
+            VBox text = new VBox(8, name, desc);
+            text.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(text, Priority.ALWAYS);
+            HBox row = new HBox(12, skeletonBlock(46, 46, false), text);
+            row.getStyleClass().add("resourcepack-item-row");
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.setMouseTransparent(true);
+            container.getChildren().add(row);
+        }
     }
 
     private VBox createInfoCard(String titleText, String subtitleText) {
@@ -4162,34 +4472,27 @@ public class LauncherController {
             return;
         }
 
-        try {
-            Image sourceImage = new Image(file.toURI().toString(), 0, 0, true, true);
-            if (sourceImage.isError()) {
-                throw new IOException("No se pudo leer la imagen.");
-            }
-            Image cropped = openTeamIconCropDialog(sourceImage, owner);
-            if (cropped == null) {
-                return;
-            }
-            pendingTeamIconBase64 = encodeTeamIconToBase64(cropped);
-            pendingTeamIconPreview = cropped;
-            pendingTeamDraftError = validateTeamDraft();
-            renderTeamView();
-        } catch (Exception ex) {
+        Image sourceImage = new Image(file.toURI().toString(), 0, 0, true, true);
+        if (sourceImage.isError()) {
             showInfo("No se pudo usar esa imagen como icono del equipo.");
+            return;
         }
+        openTeamIconCropPanel(sourceImage, cropped -> {
+            try {
+                pendingTeamIconBase64 = encodeTeamIconToBase64(cropped);
+                pendingTeamIconPreview = cropped;
+                pendingTeamDraftError = validateTeamDraft();
+                renderTeamView();
+            } catch (Exception ex) {
+                showInfo("No se pudo usar esa imagen como icono del equipo.");
+            }
+        });
     }
 
-    private Image openTeamIconCropDialog(Image sourceImage, Stage owner) {
+    /** Panel para encuadrar el icono del equipo. Llama a onCropped solo si se confirma. */
+    private void openTeamIconCropPanel(Image sourceImage, java.util.function.Consumer<Image> onCropped) {
         final double cropSize = 320;
         final double baseScale = Math.max(cropSize / sourceImage.getWidth(), cropSize / sourceImage.getHeight());
-
-        Stage dialog = new Stage();
-        if (owner != null) {
-            dialog.initOwner(owner);
-        }
-        dialog.initModality(Modality.WINDOW_MODAL);
-        dialog.setTitle("Recorta el icono del equipo");
 
         ImageView imageView = new ImageView(sourceImage);
         imageView.setPreserveRatio(true);
@@ -4216,6 +4519,7 @@ public class LauncherController {
         StackPane cropArea = new StackPane(viewport, guideCircle, guideGrid, outerFrame);
         cropArea.setPrefSize(cropSize, cropSize);
         cropArea.setMaxSize(cropSize, cropSize);
+        cropArea.setCursor(Cursor.MOVE);
 
         double[] zoom = {1.0};
         double[] dragAnchor = {0.0, 0.0};
@@ -4252,40 +4556,34 @@ public class LauncherController {
             zoom[0] = newV.doubleValue();
             clampImage.run();
         });
+        cropArea.setOnScroll(event -> {
+            zoomSlider.setValue(clamp(zoomSlider.getValue() + (event.getDeltaY() > 0 ? 0.1 : -0.1), 1.0, 2.8));
+            event.consume();
+        });
 
-        Label hint = createBodyLabel("Arrastra la imagen para encuadrarla y usa el zoom si lo necesitas.");
+        Label hint = createBodyLabel("Arrastra la imagen para encuadrarla y usa el zoom (o la rueda del mouse) si lo necesitas.");
         hint.setWrapText(true);
         hint.setMaxWidth(cropSize);
         hint.setAlignment(Pos.CENTER);
 
         Button saveButton = new Button("Usar icono");
-        saveButton.getStyleClass().add("team-action-primary");
-        final Image[] croppedResult = {null};
+        saveButton.getStyleClass().add("primary-btn");
+        saveButton.setDefaultButton(true);
+        Button cancelButton = new Button("Cancelar");
+        cancelButton.getStyleClass().add("ghost-btn");
+
+        VBox card = buildOverlayCard("Recorta el icono del equipo", 380);
+        VBox content = new VBox(14, cropArea, hint, zoomSlider);
+        content.setAlignment(Pos.CENTER);
+        card.getChildren().addAll(content, overlayActions(cancelButton, saveButton));
+
+        Overlay overlay = openOverlay(card, true);
+        cancelButton.setOnAction(event -> closeOverlay(overlay));
         saveButton.setOnAction(event -> {
             WritableImage snapshot = viewport.snapshot(new SnapshotParameters(), new WritableImage((int) cropSize, (int) cropSize));
-            croppedResult[0] = snapshot;
-            dialog.close();
+            closeOverlay(overlay);
+            onCropped.accept(snapshot);
         });
-
-        Button cancelButton = new Button("Cancelar");
-        cancelButton.getStyleClass().add("team-action-secondary");
-        cancelButton.setOnAction(event -> dialog.close());
-
-        HBox actions = new HBox(12, saveButton, cancelButton);
-        actions.setAlignment(Pos.CENTER);
-
-        VBox root = new VBox(16, cropArea, hint, zoomSlider, actions);
-        root.getStyleClass().add("team-crop-root");
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(20));
-
-        Scene scene = new Scene(root);
-        if (titleBar != null && titleBar.getScene() != null) {
-            scene.getStylesheets().addAll(titleBar.getScene().getStylesheets());
-        }
-        dialog.setScene(scene);
-        dialog.showAndWait();
-        return croppedResult[0];
     }
 
     private Pane buildCropGuideGrid(double size) {
@@ -4309,38 +4607,47 @@ public class LauncherController {
         return grid;
     }
 
+    /** Panel encima del launcher para buscar e invitar jugadores al equipo. */
     private void openInviteDialog() {
+        // El panel se abre al instante con filas "esqueleto" mientras llega la lista de jugadores.
+        VBox card = buildOverlayCard("Invitar a tu equipo", 520);
+        card.getStyleClass().add("invite-panel");
+        card.setPrefWidth(520);
+        card.setPrefHeight(480);
+        card.setMaxHeight(480);
+
+        TextField searchField = new TextField();
+        searchField.getStyleClass().addAll("settings-field", "minecraft-search-field");
+        searchField.setPromptText("Buscar usuario de Minecraft...");
+        searchField.setDisable(true);
+
+        VBox resultsBox = new VBox(10);
+        resultsBox.getChildren().setAll(buildSkeletonPlayerRows(5));
+        ScrollPane scrollPane = new ScrollPane(resultsBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.getStyleClass().add("notifications-scroll");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        Button closeButton = new Button("Cerrar");
+        closeButton.getStyleClass().add("ghost-btn");
+        card.getChildren().addAll(searchField, scrollPane, overlayActions(closeButton));
+
+        Overlay overlay = openOverlay(card, true);
+        closeButton.setOnAction(event -> closeOverlay(overlay));
+
         CompletableFuture
                 .supplyAsync(() -> teamsService.listInviteCandidates(activeMinecraftUsername()))
                 .thenAccept(result -> Platform.runLater(() -> {
+                    if (overlay.closed) {
+                        return;
+                    }
                     if (!result.success()) {
+                        closeOverlay(overlay);
                         showInfo(result.message());
                         return;
                     }
-
-                    Stage dialog = new Stage();
-                    if (stage != null) {
-                        dialog.initOwner(stage);
-                    }
-                    dialog.initModality(Modality.WINDOW_MODAL);
-                    dialog.setTitle("Invitar jugadores");
-
-                    VBox root = new VBox(14);
-                    root.getStyleClass().add("team-modal-root");
-                    root.setPadding(new Insets(18));
-
-                    Label title = new Label("Invitar a tu equipo");
-                    title.getStyleClass().add("team-heading");
-
-                    TextField searchField = new TextField();
-                    searchField.getStyleClass().addAll("settings-field", "minecraft-search-field");
-                    searchField.setPromptText("Buscar usuario de Minecraft...");
-
-                    VBox resultsBox = new VBox(10);
-                    ScrollPane scrollPane = new ScrollPane(resultsBox);
-                    scrollPane.setFitToWidth(true);
-                    scrollPane.getStyleClass().add("notifications-scroll");
-                    VBox.setVgrow(scrollPane, Priority.ALWAYS);
+                    searchField.setDisable(false);
 
                     Map<String, Circle> inviteDialogDots = new HashMap<>();
                     Runnable renderResults = () -> {
@@ -4377,8 +4684,10 @@ public class LauncherController {
                                                 showInfo(inviteResult.message());
                                                 return;
                                             }
-                                            dialog.close();
+                                            closeOverlay(overlay);
                                             refreshTeamContextAsync();
+                                            showToast("success", "Invitación enviada",
+                                                    player.minecraftUsername() + " recibirá tu invitación.", null);
                                         }));
                             });
                             row.getChildren().addAll(avatar, name, spacer, inviteButton);
@@ -4395,15 +4704,8 @@ public class LauncherController {
                     );
                     inviteDialogPresencePoll.setCycleCount(Animation.INDEFINITE);
                     inviteDialogPresencePoll.play();
-                    dialog.setOnHidden(event -> inviteDialogPresencePoll.stop());
-
-                    root.getChildren().addAll(title, searchField, scrollPane);
-                    Scene dialogScene = new Scene(root, 500, 420);
-                    if (titleBar != null && titleBar.getScene() != null) {
-                        dialogScene.getStylesheets().addAll(titleBar.getScene().getStylesheets());
-                    }
-                    dialog.setScene(dialogScene);
-                    dialog.show();
+                    overlay.onClose = inviteDialogPresencePoll::stop;
+                    Platform.runLater(searchField::requestFocus);
                 }));
     }
 
@@ -4551,6 +4853,12 @@ public class LauncherController {
         outer.getChildren().add(inner);
 
         requestMinecraftSkinAsync(minecraftUsername);
+        String headKey = normalizeMinecraftHeadKey(minecraftUsername);
+        if (!headKey.isBlank() && !minecraftSkinImageCache.containsKey(headKey)) {
+            // La skin llega despues: esta cabeza se actualiza sola, este en la vista que este.
+            imageView.getProperties().put("headSize", (int) Math.round(innerSize));
+            headViewsAwaitingSkin.computeIfAbsent(headKey, key -> new ArrayList<>()).add(new WeakReference<>(imageView));
+        }
         return outer;
     }
 
@@ -4617,6 +4925,15 @@ public class LauncherController {
                         return;
                     }
                     minecraftSkinImageCache.put(normalized, image != null ? image : resolvePlaceholderSkinAsset());
+                    List<WeakReference<ImageView>> waiting = headViewsAwaitingSkin.remove(normalized);
+                    if (waiting != null) {
+                        for (WeakReference<ImageView> ref : waiting) {
+                            ImageView view = ref.get();
+                            if (view != null && view.getProperties().get("headSize") instanceof Integer headSize) {
+                                view.setImage(resolveMinecraftHeadImage(minecraftUsername, headSize));
+                            }
+                        }
+                    }
                     refreshCurrentUserAvatar();
                     if (currentTeamContext != null) {
                         renderTeamView();
@@ -4910,12 +5227,42 @@ public class LauncherController {
         return Base64.getEncoder().encodeToString(out.toByteArray());
     }
 
+    /** Pregunta si o no en un panel encima del launcher y espera la respuesta. */
     private boolean confirmAction(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
-        alert.setTitle("SemenCraft Launcher");
-        alert.setHeaderText(title);
-        styleDialog(alert);
-        return alert.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
+        if (modalLayer == null || !Platform.canStartNestedEventLoop()) {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
+            alert.setTitle("Semencraft Launcher");
+            alert.setHeaderText(title);
+            styleDialog(alert);
+            return alert.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
+        }
+        VBox card = buildOverlayCard(title, 460);
+        Label body = new Label(message);
+        body.getStyleClass().add("modal-body");
+        body.setWrapText(true);
+        Button yes = new Button("Sí");
+        yes.getStyleClass().add("primary-btn");
+        yes.setDefaultButton(true);
+        Button no = new Button("No");
+        no.getStyleClass().add("ghost-btn");
+        card.getChildren().addAll(body, overlayActions(no, yes));
+
+        boolean[] answer = {false};
+        Object loopKey = new Object();
+        Overlay overlay = openOverlay(card, true);
+        overlay.onClose = () -> {
+            try {
+                Platform.exitNestedEventLoop(loopKey, null);
+            } catch (RuntimeException ignored) {
+            }
+        };
+        yes.setOnAction(event -> {
+            answer[0] = true;
+            closeOverlay(overlay);
+        });
+        no.setOnAction(event -> closeOverlay(overlay));
+        Platform.enterNestedEventLoop(loopKey);
+        return answer[0];
     }
 
     private boolean allowSettingsViewExit() {
@@ -4960,8 +5307,105 @@ public class LauncherController {
         settingsStatusFade.play();
     }
 
+    // ---- Cuentas sin acceso: solo pueden cambiar su skin ----
+
+    /** Si la cuenta tiene acceso al launcher. Sin acceso no se juega ni se usan ajustes ni equipos. */
+    private boolean launcherAccess = true;
+    private boolean accessNoticeShown;
+    private Timeline accessWatch;
+
+    /**
+     * Activa o limita el launcher segun el acceso de la cuenta. El acceso lo da un admin; mientras
+     * tanto solo se puede cambiar la skin.
+     */
+    private void applyLauncherAccess(String access, boolean announce) {
+        boolean granted = access == null || access.isBlank() || "granted".equals(access);
+        boolean changed = granted != launcherAccess;
+        launcherAccess = granted;
+        for (Button button : new Button[]{btnNavTeam, btnNavSettings, btnConfigure, btnModsList}) {
+            if (button != null) {
+                button.setDisable(!granted);
+            }
+        }
+        applyPlayAvailability();
+        if (!granted) {
+            if (viewMode == ViewMode.TEAM || viewMode == ViewMode.SETTINGS) {
+                viewMode = ViewMode.HOME;
+                showView(ViewMode.SKIN, true);
+            }
+            if (lblStatus != null && !minecraftRunning && !launchInProgress) {
+                lblStatus.setText("Sin acceso todavía: solo puedes cambiar tu skin");
+            }
+            if (announce && (changed || !accessNoticeShown)) {
+                accessNoticeShown = true;
+                showAccessNotice();
+            }
+        } else if (changed) {
+            accessNoticeShown = false;
+            if (lblStatus != null && !minecraftRunning && !launchInProgress) {
+                lblStatus.setText("Listo para jugar");
+            }
+            refreshTeamContextAsync();
+            showToast("success", "Ya tienes acceso", "Un admin te dio acceso al launcher. ¡Ya puedes jugar!", null);
+        }
+    }
+
+    private void showAccessNotice() {
+        boolean revoked = "revoked".equals(SemencraftApi.accessStatus());
+        VBox card = buildOverlayCard(revoked ? "Tu acceso fue retirado" : "Todavía no tienes acceso", 480);
+        Label body = new Label(revoked
+                ? "Un admin te quitó el acceso al launcher. Mientras no te lo devuelva no puedes jugar, cambiar los ajustes "
+                + "ni usar los equipos; sí puedes cambiar tu skin. Si crees que es un error, habla con un admin en Discord."
+                : "Un admin te dará acceso al launcher. Mientras tanto no puedes jugar, cambiar los ajustes ni usar los equipos, "
+                + "pero sí puedes cambiar tu skin. El launcher se desbloquea solo en cuanto tengas acceso.");
+        body.getStyleClass().add("modal-body");
+        body.setWrapText(true);
+        Button skin = new Button("Cambiar mi skin");
+        skin.getStyleClass().add("ghost-btn");
+        Button ok = new Button("Entendido");
+        ok.getStyleClass().add("primary-btn");
+        ok.setDefaultButton(true);
+        card.getChildren().addAll(body, overlayActions(skin, ok));
+        Overlay overlay = openOverlay(card, true);
+        ok.setOnAction(event -> closeOverlay(overlay));
+        skin.setOnAction(event -> {
+            closeOverlay(overlay);
+            showView(ViewMode.SKIN, true);
+        });
+    }
+
+    /** Revisa cada minuto si un admin cambio el acceso, para desbloquear o limitar sin reiniciar. */
+    private void startAccessWatch() {
+        stopAccessWatch();
+        accessWatch = new Timeline(new KeyFrame(Duration.seconds(60), event -> {
+            if (!loggedIn || servicesShutdown || !SemencraftApi.hasSession()) {
+                return;
+            }
+            CompletableFuture.supplyAsync(SemencraftApi::validateLauncherSession)
+                    .thenAccept(result -> Platform.runLater(() -> {
+                        if (!result.ok() && result.sessionRejected()) {
+                            if (!minecraftRunning && !launchInProgress) {
+                                forceLogout(result.error());
+                            }
+                        } else if (result.ok()) {
+                            applyLauncherAccess(SemencraftApi.accessStatus(), true);
+                        }
+                    }));
+        }));
+        accessWatch.setCycleCount(Animation.INDEFINITE);
+        accessWatch.play();
+    }
+
+    private void stopAccessWatch() {
+        if (accessWatch != null) {
+            accessWatch.stop();
+            accessWatch = null;
+        }
+    }
+
     /** Cierra la sesion del launcher y vuelve a la pantalla de login con el motivo. */
     private void forceLogout(String message) {
+        stopAccessWatch();
         SemencraftApi.setSessionToken("");
         LauncherStorage.forgetCredentials();
         loggedIn = false;
@@ -5290,12 +5734,25 @@ public class LauncherController {
     }
 
     private void showInfo(String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Semencraft Launcher");
-        alert.setHeaderText("Semencraft Launcher");
-        alert.setContentText(msg);
-        styleDialog(alert);
-        alert.showAndWait();
+        if (modalLayer == null) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Semencraft Launcher");
+            alert.setHeaderText("Semencraft Launcher");
+            alert.setContentText(msg);
+            styleDialog(alert);
+            alert.showAndWait();
+            return;
+        }
+        VBox card = buildOverlayCard("Semencraft Launcher", 460);
+        Label body = new Label(msg);
+        body.getStyleClass().add("modal-body");
+        body.setWrapText(true);
+        Button ok = new Button("Entendido");
+        ok.getStyleClass().add("primary-btn");
+        ok.setDefaultButton(true);
+        card.getChildren().addAll(body, overlayActions(ok));
+        Overlay overlay = openOverlay(card, true);
+        ok.setOnAction(event -> closeOverlay(overlay));
     }
 
     private void promptJavaDownload(FabricMinecraftService.JavaRuntimeInfo javaInfo) {
@@ -5303,25 +5760,27 @@ public class LauncherController {
                 ? "no detectado"
                 : javaInfo.versionString();
 
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle("Java requerido");
-        alert.setHeaderText("Se necesita Java 21 para iniciar");
-        alert.setContentText(
+        VBox card = buildOverlayCard("Se necesita Java 21 para iniciar", 500);
+        Label body = new Label(
                 "El launcher necesita Java " + FabricMinecraftService.REQUIRED_JAVA_MAJOR + "+ para abrir Minecraft.\n\n" +
                         "Detectado: " + detected + "\n\n" +
-                        "Si tu launcher viene desde el instalador MSI, la runtime deberia venir incluida. " +
-                        "Si aun asi te falta Java o estas ejecutando una build manual, puedes descargarlo ahora."
+                        "Si tu launcher viene desde el instalador MSI, Java debería venir incluido. " +
+                        "Si aun así te falta o estás usando una build manual, puedes descargarlo ahora."
         );
-
-        ButtonType downloadButton = new ButtonType("Descargar Java 21");
-        ButtonType closeButton = new ButtonType("Cerrar");
-        alert.getButtonTypes().setAll(downloadButton, closeButton);
-        styleDialog(alert);
-
-        var selected = alert.showAndWait();
-        if (selected.isPresent() && selected.get() == downloadButton) {
+        body.getStyleClass().add("modal-body");
+        body.setWrapText(true);
+        Button close = new Button("Cerrar");
+        close.getStyleClass().add("ghost-btn");
+        Button download = new Button("Descargar Java 21");
+        download.getStyleClass().add("primary-btn");
+        download.setDefaultButton(true);
+        card.getChildren().addAll(body, overlayActions(close, download));
+        Overlay overlay = openOverlay(card, true);
+        close.setOnAction(event -> closeOverlay(overlay));
+        download.setOnAction(event -> {
             openExternalUrl(FabricMinecraftService.JAVA_21_WINDOWS_DOWNLOAD_URL);
-        }
+            closeOverlay(overlay);
+        });
     }
 
     private void openExternalUrl(String url) {
@@ -5561,7 +6020,7 @@ public class LauncherController {
     }
 
     private void checkForLauncherUpdate(boolean manual) {
-        if (updateCheckInFlight || updateInstallInProgress || servicesShutdown) {
+        if (updateCheckInFlight || servicesShutdown) {
             return;
         }
         updateCheckInFlight = true;
@@ -5617,28 +6076,23 @@ public class LauncherController {
         }
     }
 
+    /**
+     * Aviso de version nueva. Es obligatorio: no se puede cerrar ni saltar, solo descargar.
+     * El boton abre en el navegador el enlace directo del instalador de la ultima version.
+     */
     private void showUpdateModal(LauncherUpdater.UpdateInfo info) {
-        if (modalLayer == null || info == null) {
+        if (modalLayer == null || info == null || updateOverlay != null) {
             return;
         }
-        boolean canInstall = info.hasInstaller() && LauncherUpdater.canInstallInPlace();
+        String downloadUrl = info.hasInstaller() ? info.downloadUrl() : LauncherUpdater.RELEASES_PAGE_URL;
 
-        Label title = new Label("Version " + shortVersion(info.version()) + " disponible"); // Minecraft Ten no tiene tildes
-        title.getStyleClass().add("modal-title");
-        title.setWrapText(true);
-
-        String current = "Tienes la v" + shortVersion(LauncherUpdater.currentVersion()) + ". ";
-        Label body = new Label(current + (canInstall
-                ? "¿Quieres actualizar ahora? Se descarga el instalador, se desinstala la versión anterior y el launcher "
-                + "se vuelve a abrir solo. Tus mundos, skins y ajustes se conservan."
-                : "Esta copia del launcher no se instaló con el instalador oficial: se abrirá la página de descargas."));
+        VBox card = buildOverlayCard("Versión " + shortVersion(info.version()) + " disponible", 520);
+        Label body = new Label("Tienes la v" + shortVersion(LauncherUpdater.currentVersion())
+                + ". Para seguir usando el launcher tienes que instalar la versión nueva. "
+                + "Descárgala, cierra el launcher y abre el instalador. Tus mundos, skins y ajustes se conservan.");
         body.getStyleClass().add("modal-body");
         body.setWrapText(true);
-
-        VBox card = new VBox(14, title, body);
-        card.getStyleClass().add("modal-card");
-        card.setMaxWidth(520);
-        card.setMaxHeight(Region.USE_PREF_SIZE);
+        card.getChildren().add(body);
 
         if (info.notes() != null && !info.notes().isBlank()) {
             Label notes = new Label(info.notes());
@@ -5652,130 +6106,145 @@ public class LauncherController {
             card.getChildren().add(notesScroll);
         }
 
-        Label progressLabel = new Label("Preparando descarga...");
-        progressLabel.getStyleClass().add("settings-hint");
-        Region progressFill = new Region();
-        progressFill.getStyleClass().add("modal-progress-fill");
-        StackPane progressTrack = new StackPane(progressFill);
-        progressTrack.getStyleClass().add("modal-progress-track");
-        progressTrack.setAlignment(Pos.CENTER_LEFT);
-        setRegionWidth(progressFill, 0.0);
-        VBox progressBox = new VBox(8, progressLabel, progressTrack);
-        progressBox.setVisible(false);
-        progressBox.setManaged(false);
-        card.getChildren().add(progressBox);
+        Label hint = new Label("");
+        hint.getStyleClass().add("settings-hint");
+        hint.setWrapText(true);
+        hint.setVisible(false);
+        hint.setManaged(false);
+        card.getChildren().add(hint);
 
-        Button later = new Button("Mas tarde"); // Minecraft Ten no tiene tildes
-        later.getStyleClass().add("ghost-btn");
-        Button now = new Button(canInstall ? "Actualizar ahora" : "Ir a la descarga");
-        now.getStyleClass().add("primary-btn");
-        now.setDefaultButton(true);
-        Region actionsSpacer = new Region();
-        HBox.setHgrow(actionsSpacer, Priority.ALWAYS);
-        HBox actions = new HBox(10, actionsSpacer, later, now);
+        Button closeLauncher = new Button("Cerrar launcher");
+        closeLauncher.getStyleClass().add("ghost-btn");
+        closeLauncher.setVisible(false);
+        closeLauncher.setManaged(false);
+        Button download = new Button("Descargar");
+        download.getStyleClass().add("primary-btn");
+        download.setDefaultButton(true);
+        card.getChildren().add(overlayActions(closeLauncher, download));
+
+        download.setOnAction(event -> {
+            openExternalUrl(downloadUrl);
+            download.setText("Descargar de nuevo");
+            hint.setText("La descarga se abrió en tu navegador. Cuando termine, cierra el launcher y abre el archivo descargado.");
+            hint.setVisible(true);
+            hint.setManaged(true);
+            closeLauncher.setVisible(true);
+            closeLauncher.setManaged(true);
+        });
+        closeLauncher.setOnAction(event -> {
+            shutdownBackgroundServices();
+            Platform.exit();
+            System.exit(0);
+        });
+
+        updateOverlay = openOverlay(card, false);
+    }
+
+    // ------------------------------------------------------------------
+    // Paneles superpuestos (en vez de ventanas aparte)
+    // ------------------------------------------------------------------
+
+    /** Un panel abierto encima del launcher. */
+    private static final class Overlay {
+        final StackPane layer;
+        final boolean dismissable;
+        Runnable onClose;
+        boolean closed;
+
+        Overlay(StackPane layer, boolean dismissable) {
+            this.layer = layer;
+            this.dismissable = dismissable;
+        }
+    }
+
+    private final List<Overlay> openOverlays = new ArrayList<>();
+    private Overlay updateOverlay;
+
+    /** Tarjeta con el estilo de los paneles: titulo arriba y contenido debajo. */
+    private VBox buildOverlayCard(String title, double maxWidth) {
+        Label heading = new Label(title);
+        heading.getStyleClass().add("modal-title");
+        heading.setWrapText(true);
+        VBox card = new VBox(14, heading);
+        card.getStyleClass().add("modal-card");
+        card.setMaxWidth(maxWidth);
+        card.setMaxHeight(Region.USE_PREF_SIZE);
+        return card;
+    }
+
+    private static HBox overlayActions(Button... buttons) {
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox actions = new HBox(10, spacer);
+        actions.getChildren().addAll(buttons);
         actions.setAlignment(Pos.CENTER_RIGHT);
         actions.setPadding(new Insets(6, 0, 0, 0));
-        card.getChildren().add(actions);
+        return actions;
+    }
 
-        later.setOnAction(event -> {
-            closeModal();
-            showToast("update", "Actualización pendiente",
-                    "Puedes instalarla cuando quieras desde la campana de notificaciones.", this::openNotificationsPanel);
-        });
-        now.setOnAction(event -> {
-            if (!canInstall) {
-                openExternalUrl(info.pageUrl());
-                closeModal();
-                return;
+    /**
+     * Abre un panel encima del launcher (oscurece lo de atras). Si es descartable, se cierra con Esc
+     * o haciendo clic fuera de la tarjeta.
+     */
+    private Overlay openOverlay(Region card, boolean dismissable) {
+        StackPane layer = new StackPane(card);
+        layer.getStyleClass().add("overlay-backdrop");
+        layer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        Overlay overlay = new Overlay(layer, dismissable);
+        layer.setOnMouseClicked(event -> {
+            if (overlay.dismissable && event.getTarget() == layer) {
+                closeOverlay(overlay);
             }
-            startUpdateDownload(info, now, later, progressBox, progressLabel, progressTrack, progressFill);
+        });
+        layer.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() == KeyCode.ESCAPE && overlay.dismissable) {
+                closeOverlay(overlay);
+                event.consume();
+            }
         });
 
+        openOverlays.add(overlay);
         updateNotificationsDropdownVisibility(false, false);
-        modalLayer.getChildren().setAll(card);
+        modalLayer.getChildren().add(layer);
         modalLayer.setVisible(true);
         modalLayer.setManaged(true);
+        modalLayer.setOpacity(1.0);
         modalLayer.toFront();
-        modalLayer.setOpacity(0.0);
+
+        layer.setOpacity(0.0);
         card.setScaleX(0.96);
         card.setScaleY(0.96);
-        new Timeline(new KeyFrame(motion(220),
-                new KeyValue(modalLayer.opacityProperty(), 1.0, Interpolator.EASE_OUT),
+        new Timeline(new KeyFrame(motion(200),
+                new KeyValue(layer.opacityProperty(), 1.0, Interpolator.EASE_OUT),
                 new KeyValue(card.scaleXProperty(), 1.0, Interpolator.EASE_OUT),
                 new KeyValue(card.scaleYProperty(), 1.0, Interpolator.EASE_OUT)
         )).play();
+        Platform.runLater(layer::requestFocus);
+        return overlay;
     }
 
-    private void startUpdateDownload(
-            LauncherUpdater.UpdateInfo info,
-            Button now,
-            Button later,
-            VBox progressBox,
-            Label progressLabel,
-            StackPane progressTrack,
-            Region progressFill
-    ) {
-        updateInstallInProgress = true;
-        now.setDisable(true);
-        later.setDisable(true);
-        now.setText("Descargando...");
-        progressBox.setVisible(true);
-        progressBox.setManaged(true);
-        progressLabel.setText("Descargando " + info.assetName() + "...");
-
-        CompletableFuture
-                .supplyAsync(() -> {
-                    try {
-                        return launcherUpdater.downloadInstaller(info, (done, total) -> Platform.runLater(() -> {
-                            double fraction = total > 0 ? Math.min(1.0, done / (double) total) : 0.0;
-                            setRegionWidth(progressFill, Math.rint(resolveTrackContentWidth(progressTrack) * fraction));
-                            progressLabel.setText(String.format(Locale.US, "Descargando... %.1f de %.1f MB",
-                                    done / 1048576.0, Math.max(done, total) / 1048576.0));
-                        }));
-                    } catch (IOException ex) {
-                        throw new CompletionException(ex);
-                    }
-                })
-                .whenComplete((msi, error) -> Platform.runLater(() -> {
-                    if (error != null) {
-                        updateInstallInProgress = false;
-                        now.setDisable(false);
-                        later.setDisable(false);
-                        now.setText("Reintentar");
-                        progressLabel.setText("No se pudo descargar: " + rootMessage(error));
-                        return;
-                    }
-                    setRegionWidth(progressFill, resolveTrackContentWidth(progressTrack));
-                    now.setText("Instalando...");
-                    progressLabel.setText("Abriendo el instalador. El launcher se cerrará y volverá a abrirse al terminar.");
-                    try {
-                        LauncherUpdater.startInstaller(msi);
-                    } catch (IOException ex) {
-                        updateInstallInProgress = false;
-                        now.setDisable(false);
-                        later.setDisable(false);
-                        now.setText("Reintentar");
-                        progressLabel.setText("No se pudo abrir el instalador: " + rootMessage(ex));
-                        return;
-                    }
-                    // Hay que liberar los archivos del launcher antes de que el MSI los reemplace.
-                    delay(900, () -> {
-                        shutdownBackgroundServices();
-                        Platform.exit();
-                        System.exit(0);
-                    });
-                }));
-    }
-
-    private void closeModal() {
-        if (modalLayer == null || updateInstallInProgress) {
+    private void closeOverlay(Overlay overlay) {
+        if (overlay == null || overlay.closed) {
             return;
         }
-        FadeTransition out = fade(modalLayer, 0.0, 180);
+        overlay.closed = true;
+        openOverlays.remove(overlay);
+        if (overlay == updateOverlay) {
+            updateOverlay = null;
+        }
+        if (overlay.onClose != null) {
+            overlay.onClose.run();
+        }
+        overlay.layer.setMouseTransparent(true);
+        FadeTransition out = fade(overlay.layer, 0.0, 160);
         out.setOnFinished(event -> {
-            modalLayer.setVisible(false);
-            modalLayer.setManaged(false);
-            modalLayer.getChildren().clear();
+            modalLayer.getChildren().remove(overlay.layer);
+            if (modalLayer.getChildren().isEmpty()) {
+                modalLayer.setVisible(false);
+                modalLayer.setManaged(false);
+            } else {
+                modalLayer.getChildren().get(modalLayer.getChildren().size() - 1).requestFocus();
+            }
         });
         out.play();
     }

@@ -97,6 +97,9 @@ const ACTIONS: Record<string, (ctx: Ctx) => Promise<Json>> = {
   submitPayment,
   discordStart,
   discordFinish,
+  discordLinkStart,
+  discordLinkStatus,
+  discordLinkFinish,
   uploadStorage,
   adminOverview,
   adminListUsers,
@@ -106,12 +109,14 @@ const ACTIONS: Record<string, (ctx: Ctx) => Promise<Json>> = {
   adminMarkPaid,
   adminCreateUser,
   adminSetAccess,
+  adminSetAccessAll,
   adminBan,
   adminUnban,
   adminResetPassword,
   adminLogoutUser,
   adminSetRole,
   adminRemoveFromTeam,
+  adminSetTeam,
   adminSetNote,
   adminDeleteUser,
   adminCreateTestUser,
@@ -124,10 +129,13 @@ const ACTIONS: Record<string, (ctx: Ctx) => Promise<Json>> = {
 async function register(ctx: Ctx): Promise<Json> {
   const username = String(ctx.body.username ?? "").trim();
   const password = String(ctx.body.password ?? "");
+  const discordRaw = String(ctx.body.discordUsername ?? "").trim();
   validateUsername(username);
   validatePassword(password);
   await limitAttempts(`register:${ctx.ip}`, 6, 60, true);
   if (await findUser(username)) throw new Fail("Ese nombre de Minecraft ya esta registrado.", "username_taken");
+  // Discord es opcional; si lo escribe, se revisa antes de crear la cuenta para poder corregirlo.
+  const member = discordRaw ? await findDiscordMember(discordRaw, null) : null;
 
   const { data, error } = await db.from("app_users").insert({
     minecraft_username: username,
@@ -143,7 +151,8 @@ async function register(ctx: Ctx): Promise<Json> {
   }
   await recordAttempt(`register:${ctx.ip}`, true);
   const token = await createSession(data.id, "web");
-  return { token, profile: await profile(data as User) };
+  const discord = member ? await createDiscordCode(username, member, { purpose: "link", user_id: data.id }) : null;
+  return { token, profile: await profile(data as User), discord };
 }
 
 async function login(ctx: Ctx): Promise<Json> {
@@ -165,9 +174,9 @@ async function login(ctx: Ctx): Promise<Json> {
     throw new Fail("Esta cuenta de prueba ya vencio.", "expired", 403);
   }
   assertNotBanned(user);
-  if (client === "launcher" && user.access_status !== "granted") {
-    throw accessFail(user);
-  }
+  // Desde la 1.3.1 (limited: true) se entra sin acceso: el launcher solo deja cambiar la skin hasta que
+  // un admin de acceso. Los launchers anteriores no saben limitarse, asi que a ellos se les sigue cerrando.
+  if (client === "launcher" && user.access_status !== "granted" && ctx.body.limited !== true) throw accessFail(user);
   await recordAttempt(userKey, true);
   const token = await createSession(user.id, client);
   return { token, profile: await profile(user) };
@@ -178,10 +187,10 @@ async function logout(ctx: Ctx): Promise<Json> {
   return {};
 }
 
-/** Perfil de la sesion. El launcher lo llama al abrir y antes de jugar para respetar baneos y accesos. */
+/** Perfil de la sesion. El launcher lo llama al abrir, antes de jugar y cada minuto para seguir baneos y accesos. */
 async function me(ctx: Ctx): Promise<Json> {
   const user = await requireUser(ctx);
-  if (ctx.body.client === "launcher" && user.access_status !== "granted") throw accessFail(user);
+  if (ctx.body.client === "launcher" && user.access_status !== "granted" && ctx.body.limited !== true) throw accessFail(user);
   return { profile: await profile(user) };
 }
 
@@ -238,47 +247,10 @@ async function discordStart(ctx: Ctx): Promise<Json> {
   await limitAttempts(`register:${ctx.ip}`, 6, 60, true);
   if (await findUser(username)) throw new Fail("Ese nombre de Minecraft ya esta registrado.", "username_taken");
 
-  const lookup = normalizeDiscord(discordRaw);
-  if (!lookup) throw new Fail("Introduce tu usuario de Discord.");
-  const { data: members } = await db.from("discord_members_cache").select("discord_user_id, discord_username, discord_global_name, discord_display_name, lookup_keys, is_bot").limit(5000);
-  const member = (members ?? []).find((m) =>
-    !m.is_bot && [m.discord_username, m.discord_global_name, m.discord_display_name, ...((m.lookup_keys as string[]) ?? [])]
-      .some((key) => normalizeDiscord(String(key ?? "")) === lookup)
-  );
-  if (!member) throw new Fail("Ese usuario de Discord no aparece en el servidor. Revisa que este bien escrito.");
-  const { data: linked } = await db.from("app_users").select("id").eq("discord_user_id", member.discord_user_id).limit(1);
-  if (linked && linked.length > 0) throw new Fail("Ese usuario de Discord ya esta vinculado a otra cuenta.");
-
-  // Los codigos pendientes anteriores de este nombre o de este Discord dejan de valer.
-  const { data: jobs } = await db.from("discord_role_jobs").select("id, payload").eq("job_type", "registration_verification").in("status", ["pending", "sent", "delivery_failed"]);
-  for (const job of jobs ?? []) {
-    const p = job.payload as Json;
-    if (p.minecraft_username_normalized === username.toLowerCase() || p.discord_user_id === member.discord_user_id) {
-      await db.from("discord_role_jobs").update({ status: "expired", processed_at: new Date().toISOString(), payload: { ...p, delivery_status: "expired" } }).eq("id", job.id);
-    }
-  }
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
-  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
-  const display = member.discord_global_name || member.discord_display_name || member.discord_username;
-  const { data: job, error } = await db.from("discord_role_jobs").insert({
-    job_type: "registration_verification",
-    status: "pending",
-    guild_id: "registration",
-    payload: {
-      minecraft_username: username,
-      minecraft_username_normalized: username.toLowerCase(),
-      password_hash: await hashPassword(password),
-      discord_username: display,
-      discord_lookup_normalized: lookup,
-      discord_user_id: member.discord_user_id,
-      verification_code: code,
-      expires_at: expiresAt,
-      delivery_status: "pending",
-    },
-  }).select("id").single();
-  if (error) throw error;
+  const member = await findDiscordMember(discordRaw, null);
+  const job = await createDiscordCode(username, member, { password_hash: await hashPassword(password) });
   await recordAttempt(`register:${ctx.ip}`, true);
-  return { verificationId: job.id, discordDisplayName: display, expiresAt };
+  return job;
 }
 
 async function discordFinish(ctx: Ctx): Promise<Json> {
@@ -316,11 +288,121 @@ async function discordFinish(ctx: Ctx): Promise<Json> {
   };
 }
 
+// ---------- Vincular Discord a una cuenta ya creada (desde la web) ----------
+
+/** Envia por DM (lo hace SemmieBOT) un codigo para vincular el Discord a la cuenta de la sesion. */
+async function discordLinkStart(ctx: Ctx): Promise<Json> {
+  const user = await requireUser(ctx);
+  await limitAttempts(`discord-link:${user.id}`, 6, 60, true);
+  const member = await findDiscordMember(String(ctx.body.discordUsername ?? ""), user.id);
+  const job = await createDiscordCode(user.minecraft_username, member, { purpose: "link", user_id: user.id });
+  await recordAttempt(`discord-link:${user.id}`, true);
+  return job;
+}
+
+/** Si el bot ya pudo mandar el DM (para avisar si el jugador tiene los mensajes directos cerrados). */
+async function discordLinkStatus(ctx: Ctx): Promise<Json> {
+  const user = await requireUser(ctx);
+  const job = await linkJob(user, String(ctx.body.verificationId ?? ""));
+  const p = job.payload as Json;
+  return { status: job.status, delivery: p.delivery_status ?? "pending" };
+}
+
+async function discordLinkFinish(ctx: Ctx): Promise<Json> {
+  const user = await requireUser(ctx);
+  const id = String(ctx.body.verificationId ?? "");
+  const code = String(ctx.body.code ?? "").trim();
+  await limitAttempts(`verify:${id}`, 6, 15);
+  const job = await linkJob(user, id);
+  const p = job.payload as Json;
+  if (job.status === "completed") throw new Fail("Ese codigo ya fue usado.");
+  if (job.status === "expired" || new Date(String(p.expires_at)) < new Date()) {
+    throw new Fail("El codigo ya vencio. Pide uno nuevo.");
+  }
+  if (code !== p.verification_code) {
+    await recordAttempt(`verify:${id}`, false);
+    throw new Fail("El codigo es incorrecto.");
+  }
+  const { data: taken } = await db.from("app_users").select("id").eq("discord_user_id", p.discord_user_id).neq("id", user.id).limit(1);
+  if (taken && taken.length > 0) throw new Fail("Ese usuario de Discord ya esta vinculado a otra cuenta.");
+  const { error } = await db.from("app_users").update({
+    discord_username: p.discord_username,
+    discord_lookup_normalized: p.discord_lookup_normalized,
+    discord_user_id: p.discord_user_id,
+  }).eq("id", user.id);
+  if (error) throw error;
+  await db.from("discord_role_jobs").update({ status: "completed", processed_at: new Date().toISOString(), payload: { ...p, delivery_status: "verified" } }).eq("id", id);
+  return { profile: await profile((await userById(user.id))!) };
+}
+
+async function linkJob(user: User, id: string): Promise<{ id: string; status: string; payload: Json }> {
+  if (!/^[0-9a-f-]{36}$/.test(id)) throw new Fail("No se encontro la verificacion pendiente.");
+  const { data: job } = await db.from("discord_role_jobs").select("id, status, payload, job_type").eq("id", id).maybeSingle();
+  if (!job || job.job_type !== "registration_verification" || (job.payload as Json)?.user_id !== user.id) {
+    throw new Fail("No se encontro la verificacion pendiente.");
+  }
+  return job as { id: string; status: string; payload: Json };
+}
+
+type DiscordMember = { discord_user_id: string; discord_username: string; discord_global_name: string | null; discord_display_name: string | null; lookup: string };
+
+/** Busca al usuario en la lista de miembros del servidor que guarda el bot. */
+async function findDiscordMember(raw: string, ownerId: string | null): Promise<DiscordMember> {
+  const lookup = normalizeDiscord(raw);
+  if (!lookup) throw new Fail("Introduce tu usuario de Discord.");
+  const { data: members } = await db.from("discord_members_cache").select("discord_user_id, discord_username, discord_global_name, discord_display_name, lookup_keys, is_bot").limit(5000);
+  const member = (members ?? []).find((m) =>
+    !m.is_bot && [m.discord_username, m.discord_global_name, m.discord_display_name, ...((m.lookup_keys as string[]) ?? [])]
+      .some((key) => normalizeDiscord(String(key ?? "")) === lookup)
+  );
+  if (!member) {
+    throw new Fail(`Ese usuario de Discord no aparece en el servidor. Revisa que este bien escrito y que ya te hayas unido: ${DISCORD_INVITE}`, "discord_not_found");
+  }
+  let query = db.from("app_users").select("id").eq("discord_user_id", member.discord_user_id);
+  if (ownerId) query = query.neq("id", ownerId);
+  const { data: linked } = await query.limit(1);
+  if (linked && linked.length > 0) throw new Fail("Ese usuario de Discord ya esta vinculado a otra cuenta.");
+  return { ...member, lookup } as DiscordMember;
+}
+
+/** Crea el trabajo que SemmieBOT lee para mandar el codigo por DM. Invalida los codigos anteriores. */
+async function createDiscordCode(username: string, member: DiscordMember, extra: Json): Promise<Json> {
+  const { data: jobs } = await db.from("discord_role_jobs").select("id, payload").eq("job_type", "registration_verification").in("status", ["pending", "sent", "delivery_failed"]);
+  for (const job of jobs ?? []) {
+    const p = job.payload as Json;
+    if (p.minecraft_username_normalized === username.toLowerCase() || p.discord_user_id === member.discord_user_id) {
+      await db.from("discord_role_jobs").update({ status: "expired", processed_at: new Date().toISOString(), payload: { ...p, delivery_status: "expired" } }).eq("id", job.id);
+    }
+  }
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  const display = member.discord_global_name || member.discord_display_name || member.discord_username;
+  const { data: job, error } = await db.from("discord_role_jobs").insert({
+    job_type: "registration_verification",
+    status: "pending",
+    guild_id: "registration",
+    payload: {
+      ...extra,
+      minecraft_username: username,
+      minecraft_username_normalized: username.toLowerCase(),
+      discord_username: display,
+      discord_lookup_normalized: member.lookup,
+      discord_user_id: member.discord_user_id,
+      verification_code: code,
+      expires_at: expiresAt,
+      delivery_status: "pending",
+    },
+  }).select("id").single();
+  if (error) throw error;
+  return { verificationId: job.id, discordDisplayName: display, expiresAt };
+}
+
 // ---------- Archivos del launcher (skins e iconos de equipo) ----------
 
 async function uploadStorage(ctx: Ctx): Promise<Json> {
-  const user = await requireUser(ctx, true);
   const bucket = String(ctx.body.bucket ?? "");
+  // La skin propia se puede cambiar sin acceso al launcher; el icono de equipo no.
+  const user = await requireUser(ctx, bucket !== "player-skins");
   const path = String(ctx.body.path ?? "");
   const contentType = String(ctx.body.contentType ?? "application/octet-stream");
   const bytes = base64ToBytes(String(ctx.body.content ?? ""));
@@ -393,17 +475,18 @@ async function adminListUsers(ctx: Ctx): Promise<Json> {
 async function adminUser(ctx: Ctx): Promise<Json> {
   await requireAdmin(ctx);
   const target = await requireTarget(ctx);
-  const { data: payments } = await db.from("payments").select("*").eq("user_id", target.id).order("created_at", { ascending: false });
-  const { count: sessions } = await db.from("app_sessions").select("token_hash", { count: "exact", head: true }).eq("user_id", target.id).gt("expires_at", new Date().toISOString());
-  const { data: audit } = await db.from("admin_audit").select("admin_name, action, details, created_at").eq("target_user_id", target.id).order("created_at", { ascending: false }).limit(30);
-  let team = null;
-  if (target.team_id) {
-    const { data } = await db.from("teams").select("id, team_name, founder_user_id, representative_color").eq("id", target.team_id).maybeSingle();
-    team = data ? { ...data, founder: data.founder_user_id === target.id } : null;
-  }
+  const [{ data: payments }, { count: sessions }, { data: audit }, teams] = await Promise.all([
+    db.from("payments").select("*").eq("user_id", target.id).order("created_at", { ascending: false }),
+    db.from("app_sessions").select("token_hash", { count: "exact", head: true }).eq("user_id", target.id).gt("expires_at", new Date().toISOString()),
+    db.from("admin_audit").select("admin_name, action, details, created_at").eq("target_user_id", target.id).order("created_at", { ascending: false }).limit(30),
+    activeTeams(),
+  ]);
+  const current = target.team_id ? teams.find((t) => t.id === target.team_id) : null;
+  const team = current ? { ...current, team_name: current.name, founder: current.founderId === target.id } : null;
   return {
     user: publicUser(target),
     team,
+    teams,
     sessions: sessions ?? 0,
     payments: await withProofUrls(payments ?? []),
     audit: audit ?? [],
@@ -497,9 +580,22 @@ async function adminSetAccess(ctx: Ctx): Promise<Json> {
   if (!["granted", "revoked", "pending"].includes(access)) throw new Fail("Estado de acceso invalido.");
   if (access !== "granted") guardOtherAdmin(admin, target, "quitarle el acceso");
   await db.from("app_users").update({ access_status: access }).eq("id", target.id);
-  if (access !== "granted") await db.from("app_sessions").delete().eq("user_id", target.id).eq("client", "launcher");
+  // No se cierran sesiones: el launcher revisa el acceso cada minuto y se limita o desbloquea solo.
   await audit(admin, "access_" + access, target, {});
   return {};
+}
+
+/** Da o quita el acceso al launcher a todas las cuentas a la vez, menos a los admins. */
+async function adminSetAccessAll(ctx: Ctx): Promise<Json> {
+  const admin = await requireAdmin(ctx);
+  const access = ctx.body.access === "granted" ? "granted" : ctx.body.access === "revoked" ? "revoked" : "";
+  if (!access) throw new Fail("Estado de acceso invalido.");
+  const { data, error } = await db.from("app_users").update({ access_status: access })
+    .neq("role", "admin").neq("access_status", access).select("id");
+  if (error) throw error;
+  const count = (data ?? []).length;
+  await audit(admin, access === "granted" ? "access_all_granted" : "access_all_revoked", null, { count });
+  return { count };
 }
 
 async function adminBan(ctx: Ctx): Promise<Json> {
@@ -570,6 +666,50 @@ async function adminRemoveFromTeam(ctx: Ctx): Promise<Json> {
   const teamName = await leaveTeam(target);
   await audit(admin, "team_removed", target, { team: teamName });
   return {};
+}
+
+/** Mueve al jugador a otro equipo existente (si estaba en uno, sale de ese primero). */
+async function adminSetTeam(ctx: Ctx): Promise<Json> {
+  const admin = await requireAdmin(ctx);
+  const target = await requireTarget(ctx);
+  const teamId = String(ctx.body.teamId ?? "");
+  const { data: team } = await db.from("teams").select("id, team_name, archived").eq("id", /^[0-9a-f-]{36}$/.test(teamId) ? teamId : "00000000-0000-0000-0000-000000000000").maybeSingle();
+  if (!team || team.archived) throw new Fail("Ese equipo no existe o esta archivado.");
+  if (target.team_id === team.id) throw new Fail("Ese jugador ya esta en ese equipo.");
+  const previous = target.team_id ? await leaveTeam(target) : null;
+  const { error } = await db.from("team_members").insert({ team_id: team.id, user_id: target.id, member_role: "member" });
+  if (error) throw error;
+  await db.from("app_users").update({ team_id: team.id }).eq("id", target.id);
+  // Las invitaciones pendientes a ese equipo ya no hacen falta.
+  await db.from("team_invites").update({ status: "accepted", responded_at: new Date().toISOString() }).eq("team_id", team.id).eq("invited_user_id", target.id).eq("status", "pending");
+  await db.from("notifications").insert({
+    user_id: target.id,
+    type: "info",
+    title: "Cambio de equipo",
+    message: `Un admin te movio al equipo ${team.team_name}.`,
+    status: "info",
+    read: false,
+    team_id: team.id,
+    created_by: admin.id,
+  });
+  await audit(admin, "team_changed", target, { from: previous, to: team.team_name });
+  return {};
+}
+
+async function activeTeams(): Promise<{ id: string; name: string; color: string; founderId: string; members: number }[]> {
+  const [{ data: teams }, { data: members }] = await Promise.all([
+    db.from("teams").select("id, team_name, representative_color, founder_user_id").eq("archived", false).order("team_name"),
+    db.from("team_members").select("team_id"),
+  ]);
+  const counts = new Map<string, number>();
+  for (const m of members ?? []) counts.set(m.team_id, (counts.get(m.team_id) ?? 0) + 1);
+  return (teams ?? []).map((t) => ({
+    id: t.id,
+    name: t.team_name,
+    color: t.representative_color,
+    founderId: t.founder_user_id,
+    members: counts.get(t.id) ?? 0,
+  }));
 }
 
 async function adminSetNote(ctx: Ctx): Promise<Json> {
@@ -719,7 +859,7 @@ function accessFail(user: User): Fail {
   if (user.access_status === "revoked") {
     return new Fail("Tu acceso al launcher fue retirado. Habla con un admin en Discord.", "access_revoked", 403, { webUrl: WEB_URL });
   }
-  return new Fail(`Tu cuenta todavia no esta activa. Envia tu comprobante de pago en ${WEB_URL}`, "access_pending", 403, { webUrl: WEB_URL });
+  return new Fail("Todavia no tienes acceso al launcher. Un admin te lo dara pronto.", "access_pending", 403, { webUrl: WEB_URL });
 }
 
 async function profile(user: User): Promise<Json> {
